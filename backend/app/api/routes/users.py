@@ -83,9 +83,7 @@ def update_user_me(
             session=session, email=user_in.email
         )
         if existing_user and existing_user.id != current_user.id:
-            raise HTTPException(
-                status_code=409, detail="该邮箱已被使用"
-            )
+            raise HTTPException(status_code=409, detail="该邮箱已被使用")
     user_data = user_in.model_dump(exclude_unset=True)
     current_user.sqlmodel_update(user_data)
     session.add(current_user)
@@ -104,9 +102,7 @@ def update_password_me(
     if not verify_password(body.current_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="密码错误")
     if body.current_password == body.new_password:
-        raise HTTPException(
-            status_code=400, detail="新密码不能与当前密码相同"
-        )
+        raise HTTPException(status_code=400, detail="新密码不能与当前密码相同")
     hashed_password = get_password_hash(body.new_password)
     current_user.hashed_password = hashed_password
     session.add(current_user)
@@ -128,9 +124,7 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     删除当前用户。
     """
     if current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="超级用户不能删除自己"
-        )
+        raise HTTPException(status_code=403, detail="超级用户不能删除自己")
     session.delete(current_user)
     session.commit()
     return Message(message="用户删除成功")
@@ -196,9 +190,7 @@ def update_user(
             session=session, email=user_in.email
         )
         if existing_user and existing_user.id != user_id:
-            raise HTTPException(
-                status_code=409, detail="该邮箱已被使用"
-            )
+            raise HTTPException(status_code=409, detail="该邮箱已被使用")
 
     db_user = crud_user.update_user(session=session, db_user=db_user, user_in=user_in)
     return db_user
@@ -215,9 +207,7 @@ def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="用户未找到")
     if user == current_user:
-        raise HTTPException(
-            status_code=403, detail="超级用户不能删除自己"
-        )
+        raise HTTPException(status_code=403, detail="超级用户不能删除自己")
     statement = delete(Item).where(col(Item.owner_id) == user_id)
     session.exec(statement)  # type: ignore
     session.delete(user)

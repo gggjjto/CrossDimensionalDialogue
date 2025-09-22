@@ -639,24 +639,4 @@ alembic upgrade head
    - 确认邮箱地址格式正确
    - 检查垃圾邮件文件夹
 
-### 调试建议
-
-1. **查看日志**
-   ```bash
-   tail -f logs/app.log
-   ```
-
-2. **测试API**
-   ```bash
-   curl -X GET "http://localhost:8000/api/v1/users/me" \
-        -H "Authorization: Bearer your_token_here"
-   ```
-
-3. **检查数据库**
-   ```sql
-   SELECT * FROM users WHERE email = 'user@example.com';
-   ```
-
----
-
 **大黄鸭团队** - 让用户管理更加简单和安全！ 🦆✨
