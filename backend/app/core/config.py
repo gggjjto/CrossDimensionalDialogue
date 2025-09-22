@@ -1,6 +1,7 @@
 import secrets
 import warnings
 from typing import Annotated, Any, Literal
+from pathlib import Path
 
 from pydantic import (
     AnyUrl,
@@ -14,7 +15,8 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
-
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+ENV_PATH = BASE_DIR / ".env"
 def parse_cors(v: Any) -> list[str] | str:
     if isinstance(v, str) and not v.startswith("["):
         return [i.strip() for i in v.split(",")]
@@ -26,7 +28,7 @@ def parse_cors(v: Any) -> list[str] | str:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # Use top level .env file (one level above ./backend/)
-        env_file="../.env",
+        env_file=str(ENV_PATH),
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -48,11 +50,11 @@ class Settings(BaseSettings):
             self.FRONTEND_HOST
         ]
 
-    PROJECT_NAME: str
+    PROJECT_NAME: str = ""
     SENTRY_DSN: HttpUrl | None = None
-    POSTGRES_SERVER: str
+    POSTGRES_SERVER: str = ""
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
+    POSTGRES_USER: str = ""
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
 
@@ -91,21 +93,21 @@ class Settings(BaseSettings):
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
+    FIRST_SUPERUSER: EmailStr = "test@example.com"
+    FIRST_SUPERUSER_PASSWORD: str = ""
 
     # 嵌入模型配置
-    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "openai"
-    
+    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "aliyun"
+
     # OpenAI 配置
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-3.5-turbo"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
-    
+
     # 阿里云配置
     ALIYUN_API_KEY: str = ""
     ALIYUN_EMBEDDING_MODEL: str = "text-embedding-v4"
-    
+
     # 本地模型配置（可选）
     LOCAL_EMBEDDING_MODEL_PATH: str = ""
     LOCAL_EMBEDDING_DEVICE: str = "cpu"

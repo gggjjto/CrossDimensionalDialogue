@@ -341,10 +341,7 @@ async def switch_embedding_provider(
     try:
         await embedding_service.switch_provider(provider)
         model_info = embedding_service.get_model_info()
-        return success_response(
-            data=model_info, 
-            msg=f"已切换到 {provider} 提供商"
-        )
+        return success_response(data=model_info, msg=f"已切换到 {provider} 提供商")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"切换提供商失败: {str(e)}")
 

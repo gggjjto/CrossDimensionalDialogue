@@ -9,7 +9,7 @@ import logging
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, text
 
 from app.core.config import settings
 from app.models.character import (
@@ -34,37 +34,37 @@ class EmbeddingService:
         self.adapter = self._create_adapter()
         self.model_name = self.adapter.model_name
         self.dimension = self.adapter.dimension
-    
+
     def _create_adapter(self) -> BaseEmbeddingAdapter:
         """
         根据配置创建相应的嵌入模型适配器
-        
+
         Returns:
             嵌入模型适配器实例
         """
         provider = settings.EMBEDDING_PROVIDER.lower()
-        
+
         if provider == "openai":
             if not settings.OPENAI_API_KEY:
                 raise ValueError("OpenAI API 密钥未配置")
             return OpenAIEmbeddingAdapter(
                 api_key=settings.OPENAI_API_KEY,
-                model_name=settings.OPENAI_EMBEDDING_MODEL
+                model_name=settings.OPENAI_EMBEDDING_MODEL,
             )
         elif provider == "aliyun":
             if not settings.ALIYUN_API_KEY:
                 raise ValueError("阿里云 API 密钥未配置")
             return AliyunEmbeddingAdapter(
                 api_key=settings.ALIYUN_API_KEY,
-                model_name=settings.ALIYUN_EMBEDDING_MODEL
+                model_name=settings.ALIYUN_EMBEDDING_MODEL,
             )
         else:
             raise ValueError(f"不支持的嵌入模型提供商: {provider}")
-    
+
     def get_model_info(self) -> Dict[str, Any]:
         """
         获取当前使用的模型信息
-        
+
         Returns:
             模型信息字典
         """
@@ -194,7 +194,7 @@ class EmbeddingService:
 
         # 使用 pgvector 进行相似度搜索
         # 注意：这里需要数据库支持 pgvector 扩展
-        stmt = f"""
+        stmt = """
         SELECT 
             c.id,
             c.name,
@@ -206,26 +206,24 @@ class EmbeddingService:
             c.is_active,
             c.created_at,
             c.updated_at,
-            1 - (ce.embedding <=> %s) as similarity_score
+            1 - (ce.embedding <=> :query_embedding) as similarity_score
         FROM characters c
         JOIN character_embeddings ce ON c.id = ce.character_id
-        WHERE ce.embedding_type = %s
+        WHERE ce.embedding_type = :embedding_type
         AND c.is_active = true
-        AND 1 - (ce.embedding <=> %s) > %s
-        ORDER BY ce.embedding <=> %s
-        LIMIT %s
+        AND 1 - (ce.embedding <=> :query_embedding) > :threshold
+        ORDER BY ce.embedding <=> :query_embedding
+        LIMIT :limit
         """
 
         result = session.exec(
-            stmt,
-            [
-                query_embedding,
-                embedding_type,
-                query_embedding,
-                threshold,
-                query_embedding,
-                limit,
-            ],
+            text(stmt),
+            {
+                "query_embedding": query_embedding,
+                "embedding_type": embedding_type,
+                "threshold": threshold,
+                "limit": limit,
+            },
         ).all()
 
         return [
@@ -272,14 +270,14 @@ class EmbeddingService:
             results[character.id] = embeddings
 
         return results
-    
+
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
         """
         批量生成文本的向量嵌入
-        
+
         Args:
             texts: 输入文本列表
-            
+
         Returns:
             向量嵌入列表的列表
         """
@@ -288,25 +286,25 @@ class EmbeddingService:
         except Exception as e:
             logger.error(f"批量生成向量嵌入失败: {str(e)}")
             raise
-    
+
     async def switch_provider(self, provider: str) -> None:
         """
         切换嵌入模型提供商
-        
+
         Args:
             provider: 提供商名称 (openai, aliyun)
         """
         if provider.lower() not in ["openai", "aliyun"]:
             raise ValueError(f"不支持的提供商: {provider}")
-        
+
         # 更新配置
         settings.EMBEDDING_PROVIDER = provider.lower()
-        
+
         # 重新创建适配器
         self.adapter = self._create_adapter()
         self.model_name = self.adapter.model_name
         self.dimension = self.adapter.dimension
-        
+
         logger.info(f"已切换到 {provider} 嵌入模型提供商")
 
 
