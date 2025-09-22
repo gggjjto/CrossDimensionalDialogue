@@ -39,7 +39,6 @@ class TestCharacterCRUD:
 
         character_obj = character.create(db, obj_in=character_data)
         self.data_manager.track_character(character_obj)
-        self.data_manager.track_character(character_obj)
 
         assert character_obj.name == character_data.name
         assert character_obj.short_bio == character_data.short_bio
@@ -58,7 +57,6 @@ class TestCharacterCRUD:
             persona_text="测试角色",
         )
         character_obj = character.create(db, obj_in=character_data)
-        self.data_manager.track_character(character_obj)
         self.data_manager.track_character(character_obj)
 
         # 获取角色
@@ -237,8 +235,10 @@ class TestCharacterTagCRUD:
 
     def test_get_character_tag_by_name(self, db: Session) -> None:
         """测试根据名称获取标签"""
+        # 使用唯一的名称避免冲突
+        unique_name = f"名称测试标签_{uuid.uuid4().hex[:8]}"
         tag_data = CharacterTagCreate(
-            name="名称测试标签",
+            name=unique_name,
             description="用于测试名称获取",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)
@@ -255,13 +255,15 @@ class TestCharacterTagCRUD:
         # 先获取当前总数
         _, initial_total = character_tag.get_multi(db, skip=0, limit=1000)
 
-        # 创建多个测试标签
+        # 创建多个测试标签，使用唯一名称
+        unique_suffix = uuid.uuid4().hex[:8]
         for i in range(3):
             tag_data = CharacterTagCreate(
-                name=f"多标签测试{i}",
-                description=f"多标签测试描述{i}",
+                name=f"多标签测试_{unique_suffix}_{i}",
+                description=f"多标签测试描述_{unique_suffix}_{i}",
             )
-            character_tag.create(db, obj_in=tag_data)
+            tag_obj = character_tag.create(db, obj_in=tag_data)
+            self.data_manager.track_tag(tag_obj)
 
         tags, total = character_tag.get_multi(db, skip=0, limit=10)
 
@@ -270,9 +272,10 @@ class TestCharacterTagCRUD:
 
     def test_update_character_tag(self, db: Session) -> None:
         """测试更新标签"""
-        # 创建测试标签
+        # 创建测试标签，使用唯一名称
+        unique_name = f"更新测试标签_{uuid.uuid4().hex[:8]}"
         tag_data = CharacterTagCreate(
-            name="更新测试标签",
+            name=unique_name,
             description="原始描述",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)
@@ -291,9 +294,10 @@ class TestCharacterTagCRUD:
 
     def test_delete_character_tag(self, db: Session) -> None:
         """测试删除标签"""
-        # 创建测试标签
+        # 创建测试标签，使用唯一名称
+        unique_name = f"删除测试标签_{uuid.uuid4().hex[:8]}"
         tag_data = CharacterTagCreate(
-            name="删除测试标签",
+            name=unique_name,
             description="用于测试删除",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)

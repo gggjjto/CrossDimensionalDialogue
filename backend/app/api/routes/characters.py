@@ -16,7 +16,7 @@ from app.models.character import (
 from app.models.user import User
 from app.utils.response import success_response, error_response, not_found_response
 
-router = APIRouter(tags=["characters"])
+router = APIRouter(prefix="/characters", tags=["characters"])
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
