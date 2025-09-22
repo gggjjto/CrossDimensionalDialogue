@@ -131,44 +131,36 @@ async def get_user_by_id(user_id: int) -> Optional[UserResponse]:
 - 以下是项目结构建议 app 文件夹下
 ~~~~ hash
 app/
-├── __init__.py
 ├── main.py                 # 入口，创建 FastAPI app
 ├── core/                   # 核心配置
-│   ├── __init__.py
 │   ├── config.py           # 读取环境变量，配置数据库、API密钥等
 │   ├── database.py         # SQLAlchemy/SQLModel 数据库连接
 │   ├── security.py         # 认证/鉴权逻辑 (JWT/Session)
 │   └── logging.py          # 日志配置
 │
 ├── models/                 # 数据模型 (SQLModel/SQLAlchemy + Pydantic)
-│   ├── __init__.py
 │   ├── character.py        # 角色表
 │   ├── tag.py              # 标签表
 │   └── embedding.py        # 向量表
 │
 ├── schemas/                # Pydantic 校验模型 (输入输出 DTO)
-│   ├── __init__.py
 │   ├── character.py
 │   ├── tag.py
 │   └── embedding.py
 │
 ├── crud/                   # 数据库操作 (解耦业务逻辑)
-│   ├── __init__.py
 │   ├── character.py
 │   ├── tag.py
 │   └── embedding.py
 │
 ├── services/               # 业务逻辑层 (可以调用多个 crud、外部 API)
-│   ├── __init__.py
 │   ├── character_service.py
 │   ├── search_service.py   # 搜索服务 (模糊/embedding)
 │   └── voice_service.py    # 语音服务 (调用 TTS/STT API)
 │
 ├── api/                    # 路由
-│   ├── __init__.py
 │   ├── deps.py             # 依赖注入 (DB, Auth)
 │   ├── v1/                 # API 版本化
-│   │   ├── __init__.py
 │   │   ├── character.py    # 角色路由
 │   │   ├── tag.py
 │   │   └── search.py
@@ -177,20 +169,18 @@ app/
 │   └── versions/
 │
 ├── tests/                  # 测试
-│   ├── __init__.py
 │   ├── test_character.py
 │   ├── test_search.py
 │   └── conftest.py         # pytest 配置
 │
 └── utils/                  # 工具类 (封装通用函数)
-    ├── __init__.py
     ├── helpers.py
     ├── vector.py           # embedding 相关工具
     └── pagination.py
 ~~~~
 
 使用技术栈：
-- 后端：FastAPI + WebSocket + REST
+- 后端：FastAPI + WebSocket + REST + SQLModel
 - 数据库：PostgreSQL + pgvector
 - 缓存：Redis
 - 存储：MinIO/S3
@@ -204,9 +194,13 @@ app/
 - 要确保在虚拟环境中运行
 ~~~~bash
 cd backend
-d:/GitHub/dahuanya/backend/.venv/Scripts/Activate.ps1
+./.venv/Scripts/Activate.ps1
 ~~~~
 
 目前的操作系统是：windows11
 
 我在进行团队合作使用GitHub和git， github Actions进行代码部署，使用Docker进行容器化。
+
+不可以删除文件
+不使用_init_.py
+在进行 from 操作时，从 app. 开始
