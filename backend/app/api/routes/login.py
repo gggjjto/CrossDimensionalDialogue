@@ -31,9 +31,9 @@ def login_access_token(
         session=session, email=form_data.username, password=form_data.password
     )
     if not user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(status_code=400, detail="邮箱或密码错误")
     elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=400, detail="用户账户未激活")
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return Token(
         access_token=security.create_access_token(
@@ -60,7 +60,7 @@ def recover_password(email: str, session: SessionDep) -> Message:
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this email does not exist in the system.",
+            detail="该邮箱不存在于系统中。",
         )
     password_reset_token = generate_password_reset_token(email=email)
     email_data = generate_reset_password_email(
@@ -71,7 +71,7 @@ def recover_password(email: str, session: SessionDep) -> Message:
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
-    return Message(message="Password recovery email sent")
+    return Message(message="密码恢复邮件已发送")
 
 
 @router.post("/reset-password/")
@@ -81,20 +81,20 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
     """
     email = verify_password_reset_token(token=body.token)
     if not email:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise HTTPException(status_code=400, detail="无效的令牌")
     user = crud_user.get_user_by_email(session=session, email=email)
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this email does not exist in the system.",
+            detail="该邮箱不存在于系统中。",
         )
     elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=400, detail="用户账户未激活")
     hashed_password = get_password_hash(password=body.new_password)
     user.hashed_password = hashed_password
     session.add(user)
     session.commit()
-    return Message(message="Password updated successfully")
+    return Message(message="密码更新成功")
 
 
 @router.post(
@@ -111,7 +111,7 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this username does not exist in the system.",
+            detail="该用户名不存在于系统中。",
         )
     password_reset_token = generate_password_reset_token(email=email)
     email_data = generate_reset_password_email(

@@ -54,7 +54,7 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
     if user:
         raise HTTPException(
             status_code=400,
-            detail="The user with this email already exists in the system.",
+            detail="该邮箱已存在于系统中。",
         )
 
     user = crud_user.create_user(session=session, user_create=user_in)
@@ -84,7 +84,7 @@ def update_user_me(
         )
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
-                status_code=409, detail="User with this email already exists"
+                status_code=409, detail="该邮箱已被使用"
             )
     user_data = user_in.model_dump(exclude_unset=True)
     current_user.sqlmodel_update(user_data)
@@ -102,16 +102,16 @@ def update_password_me(
     更新当前用户密码。
     """
     if not verify_password(body.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect password")
+        raise HTTPException(status_code=400, detail="密码错误")
     if body.current_password == body.new_password:
         raise HTTPException(
-            status_code=400, detail="New password cannot be the same as the current one"
+            status_code=400, detail="新密码不能与当前密码相同"
         )
     hashed_password = get_password_hash(body.new_password)
     current_user.hashed_password = hashed_password
     session.add(current_user)
     session.commit()
-    return Message(message="Password updated successfully")
+    return Message(message="密码更新成功")
 
 
 @router.get("/me", response_model=UserPublic)
@@ -129,11 +129,11 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
     if current_user.is_superuser:
         raise HTTPException(
-            status_code=403, detail="Super users are not allowed to delete themselves"
+            status_code=403, detail="超级用户不能删除自己"
         )
     session.delete(current_user)
     session.commit()
-    return Message(message="User deleted successfully")
+    return Message(message="用户删除成功")
 
 
 @router.post("/signup", response_model=UserPublic)
@@ -145,7 +145,7 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     if user:
         raise HTTPException(
             status_code=400,
-            detail="The user with this email already exists in the system",
+            detail="该邮箱已存在于系统中",
         )
     user_create = UserCreate.model_validate(user_in)
     user = crud_user.create_user(session=session, user_create=user_create)
@@ -165,7 +165,7 @@ def read_user_by_id(
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=403,
-            detail="The user doesn't have enough privileges",
+            detail="用户权限不足",
         )
     return user
 
@@ -189,7 +189,7 @@ def update_user(
     if not db_user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this id does not exist in the system",
+            detail="该用户不存在于系统中",
         )
     if user_in.email:
         existing_user = crud_user.get_user_by_email(
@@ -197,7 +197,7 @@ def update_user(
         )
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
-                status_code=409, detail="User with this email already exists"
+                status_code=409, detail="该邮箱已被使用"
             )
 
     db_user = crud_user.update_user(session=session, db_user=db_user, user_in=user_in)
@@ -213,13 +213,13 @@ def delete_user(
     """
     user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="用户未找到")
     if user == current_user:
         raise HTTPException(
-            status_code=403, detail="Super users are not allowed to delete themselves"
+            status_code=403, detail="超级用户不能删除自己"
         )
     statement = delete(Item).where(col(Item.owner_id) == user_id)
     session.exec(statement)  # type: ignore
     session.delete(user)
     session.commit()
-    return Message(message="User deleted successfully")
+    return Message(message="用户删除成功")
