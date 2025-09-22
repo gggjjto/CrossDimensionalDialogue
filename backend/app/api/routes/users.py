@@ -18,7 +18,6 @@ from app.models import (
     UserUpdateMe,
 )
 from app.utils import generate_new_account_email, send_email
-from app.utils.response import success_response, error_response, not_found_response
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import col, delete, select
@@ -26,29 +25,27 @@ from sqlmodel import col, delete, select
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/")
+@router.get(
+    "/",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UsersPublic,
+)
 def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     """
     获取用户列表。
     """
+
     count_statement = select(func.count()).select_from(User)
     count = session.exec(count_statement).one()
 
     statement = select(User).offset(skip).limit(limit)
     users = session.exec(statement).all()
-    
-    return success_response(
-        data={
-            "users": [user.model_dump() for user in users],
-            "total": count,
-            "skip": skip,
-            "limit": limit,
-        },
-        msg="获取用户列表成功"
-    )
+    return UsersPublic(data=users, count=count)
 
 
-@router.post("/")
+@router.post(
+    "/", dependencies=[Depends(get_current_active_superuser)], response_model=UserPublic
+)
 def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
     """
     创建新用户。
@@ -57,7 +54,7 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
     if user:
         raise HTTPException(
             status_code=400,
-            detail="用户邮箱已存在",
+            detail="The user with this email already exists in the system.",
         )
 
     user = crud_user.create_user(session=session, user_create=user_in)
@@ -70,10 +67,10 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
-    return success_response(data=user.model_dump(), msg="用户创建成功")
+    return user
 
 
-@router.patch("/me")
+@router.patch("/me", response_model=UserPublic)
 def update_user_me(
     *, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser
 ) -> Any:
@@ -87,17 +84,17 @@ def update_user_me(
         )
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
-                status_code=409, detail="用户邮箱已存在"
+                status_code=409, detail="User with this email already exists"
             )
     user_data = user_in.model_dump(exclude_unset=True)
     current_user.sqlmodel_update(user_data)
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
-    return success_response(data=current_user.model_dump(), msg="用户信息更新成功")
+    return current_user
 
 
-@router.patch("/me/password")
+@router.patch("/me/password", response_model=Message)
 def update_password_me(
     *, session: SessionDep, body: UpdatePassword, current_user: CurrentUser
 ) -> Any:
@@ -105,41 +102,41 @@ def update_password_me(
     更新当前用户密码。
     """
     if not verify_password(body.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="当前密码错误")
+        raise HTTPException(status_code=400, detail="Incorrect password")
     if body.current_password == body.new_password:
         raise HTTPException(
-            status_code=400, detail="新密码不能与当前密码相同"
+            status_code=400, detail="New password cannot be the same as the current one"
         )
     hashed_password = get_password_hash(body.new_password)
     current_user.hashed_password = hashed_password
     session.add(current_user)
     session.commit()
-    return success_response(msg="密码更新成功")
+    return Message(message="Password updated successfully")
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserPublic)
 def read_user_me(current_user: CurrentUser) -> Any:
     """
     获取当前用户信息。
     """
-    return success_response(data=current_user.model_dump(), msg="获取用户信息成功")
+    return current_user
 
 
-@router.delete("/me")
+@router.delete("/me", response_model=Message)
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
     删除当前用户。
     """
     if current_user.is_superuser:
         raise HTTPException(
-            status_code=403, detail="超级用户不能删除自己"
+            status_code=403, detail="Super users are not allowed to delete themselves"
         )
     session.delete(current_user)
     session.commit()
-    return success_response(msg="用户删除成功")
+    return Message(message="User deleted successfully")
 
 
-@router.post("/signup")
+@router.post("/signup", response_model=UserPublic)
 def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     """
     用户注册（无需登录）。
@@ -148,14 +145,14 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     if user:
         raise HTTPException(
             status_code=400,
-            detail="用户邮箱已存在",
+            detail="The user with this email already exists in the system",
         )
     user_create = UserCreate.model_validate(user_in)
     user = crud_user.create_user(session=session, user_create=user_create)
-    return success_response(data=user.model_dump(), msg="用户注册成功")
+    return user
 
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", response_model=UserPublic)
 def read_user_by_id(
     user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser
 ) -> Any:
@@ -163,19 +160,21 @@ def read_user_by_id(
     根据ID获取用户信息。
     """
     user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
     if user == current_user:
-        return success_response(data=user.model_dump(), msg="获取用户信息成功")
+        return user
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=403,
-            detail="用户权限不足",
+            detail="The user doesn't have enough privileges",
         )
-    return success_response(data=user.model_dump(), msg="获取用户信息成功")
+    return user
 
 
-@router.patch("/{user_id}")
+@router.patch(
+    "/{user_id}",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UserPublic,
+)
 def update_user(
     *,
     session: SessionDep,
@@ -190,7 +189,7 @@ def update_user(
     if not db_user:
         raise HTTPException(
             status_code=404,
-            detail="用户不存在",
+            detail="The user with this id does not exist in the system",
         )
     if user_in.email:
         existing_user = crud_user.get_user_by_email(
@@ -198,29 +197,29 @@ def update_user(
         )
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
-                status_code=409, detail="用户邮箱已存在"
+                status_code=409, detail="User with this email already exists"
             )
 
     db_user = crud_user.update_user(session=session, db_user=db_user, user_in=user_in)
-    return success_response(data=db_user.model_dump(), msg="用户信息更新成功")
+    return db_user
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", dependencies=[Depends(get_current_active_superuser)])
 def delete_user(
     session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
-) -> Any:
+) -> Message:
     """
     删除用户。
     """
     user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User not found")
     if user == current_user:
         raise HTTPException(
-            status_code=403, detail="超级用户不能删除自己"
+            status_code=403, detail="Super users are not allowed to delete themselves"
         )
     statement = delete(Item).where(col(Item.owner_id) == user_id)
     session.exec(statement)  # type: ignore
     session.delete(user)
     session.commit()
-    return success_response(msg="用户删除成功")
+    return Message(message="User deleted successfully")
