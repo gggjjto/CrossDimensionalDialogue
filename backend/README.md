@@ -9,6 +9,92 @@
 
 Start the local development environment with Docker Compose following the guide in [../development.md](../development.md).
 
+### 支持 pgvector 的向量搜索
+
+本项目支持 PostgreSQL 的 pgvector 扩展，用于向量相似度搜索功能。
+
+#### 快速启动（支持 pgvector）
+
+**Windows:**
+```console
+scripts\start-with-pgvector.bat
+```
+
+**Linux/macOS:**
+```console
+./scripts/start-with-pgvector.sh
+```
+
+#### 手动启动
+
+1. 使用支持 pgvector 的 PostgreSQL 镜像：
+```yaml
+# docker-compose.yml 中已配置
+image: pgvector/pgvector:pg17
+```
+
+2. 启动服务：
+```console
+docker-compose up -d
+```
+
+3. 验证 pgvector 扩展：
+```console
+python app/scripts/test_pgvector.py
+```
+
+4. 测试向量搜索：
+```console
+python app/scripts/test_vector_search.py
+```
+
+#### 向量搜索功能
+
+- **文本搜索**: 基于关键词的传统搜索
+- **向量搜索**: 基于语义相似度的 AI 搜索
+- **混合搜索**: 结合文本和向量搜索的智能搜索
+
+支持的嵌入模型提供商：
+- OpenAI (text-embedding-3-small, text-embedding-3-large)
+- 阿里云 (text-embedding-v4)
+- 本地模型（可扩展）
+
+## 角色管理系统
+
+### 核心功能
+
+- **角色管理**: 创建、更新、删除、查询角色
+- **标签系统**: 支持角色分类和标签管理
+- **向量搜索**: 基于语义相似度的智能搜索
+- **多模型支持**: 支持多种嵌入模型提供商
+- **混合搜索**: 结合文本和向量搜索的综合搜索
+
+### 快速开始
+
+1. **查看文档**:
+   - [快速开始指南](docs/quick_start.md)
+   - [完整功能文档](docs/character_management.md)
+   - [API使用示例](docs/api_examples.md)
+
+2. **测试功能**:
+   ```bash
+   # 测试嵌入模型
+   python app/scripts/test_embedding_models.py
+   
+   # 测试向量搜索
+   python app/scripts/test_vector_search_final.py
+   ```
+
+3. **API文档**: 访问 `http://localhost:8000/docs` 查看完整API文档
+
+### 主要特性
+
+- **智能搜索**: 支持文本搜索、向量搜索和混合搜索
+- **多语言支持**: 支持中文和英文语义理解
+- **实时切换**: 支持运行时切换嵌入模型提供商
+- **高性能**: 基于pgvector的高效向量相似度计算
+- **可扩展**: 支持添加新的嵌入模型提供商
+
 ## General Workflow
 
 By default, the dependencies are managed with [uv](https://docs.astral.sh/uv/), go there and install it.
