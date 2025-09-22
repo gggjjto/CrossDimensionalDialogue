@@ -25,7 +25,7 @@ def login_access_token(
     session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    OAuth2兼容的令牌登录，获取访问令牌用于后续请求
     """
     user = crud_user.authenticate(
         session=session, email=form_data.username, password=form_data.password
@@ -45,7 +45,7 @@ def login_access_token(
 @router.post("/login/test-token", response_model=UserPublic)
 def test_token(current_user: CurrentUser) -> Any:
     """
-    Test access token
+    测试访问令牌
     """
     return current_user
 
@@ -53,7 +53,7 @@ def test_token(current_user: CurrentUser) -> Any:
 @router.post("/password-recovery/{email}")
 def recover_password(email: str, session: SessionDep) -> Message:
     """
-    Password Recovery
+    密码恢复
     """
     user = crud_user.get_user_by_email(session=session, email=email)
 
@@ -77,7 +77,7 @@ def recover_password(email: str, session: SessionDep) -> Message:
 @router.post("/reset-password/")
 def reset_password(session: SessionDep, body: NewPassword) -> Message:
     """
-    Reset password
+    重置密码
     """
     email = verify_password_reset_token(token=body.token)
     if not email:
@@ -104,7 +104,7 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
 )
 def recover_password_html_content(email: str, session: SessionDep) -> Any:
     """
-    HTML Content for Password Recovery
+    密码恢复的HTML内容
     """
     user = crud_user.get_user_by_email(session=session, email=email)
 
