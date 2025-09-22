@@ -1,6 +1,6 @@
-# 大话鸭角色管理系统文档
+# 大黄鸭角色管理系统文档
 
-欢迎使用大话鸭AI角色扮演平台的角色管理系统！本系统提供了完整的角色管理、向量搜索和智能推荐功能。
+欢迎使用大黄鸭AI角色扮演平台的角色管理系统！本系统提供了完整的角色管理、向量搜索和智能推荐功能。
 
 ## 📚 文档导航
 
@@ -143,7 +143,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ## 📞 支持与反馈
 
-- 📧 邮箱: support@dahuanya.com
+- 📧 邮箱: support@dahuangya.com
 - 🐛 问题反馈: [GitHub Issues](https://github.com/your-repo/issues)
 - 📖 文档更新: 欢迎提交文档改进建议
 
@@ -153,4 +153,4 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ---
 
-**大话鸭团队** - 让AI角色扮演更加智能和有趣！ 🦆✨
+**大黄鸭团队** - 让AI角色扮演更加智能和有趣！ 🦆✨
