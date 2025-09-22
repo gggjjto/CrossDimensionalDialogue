@@ -6,12 +6,15 @@ from sqlmodel import Session
 
 from app.api.deps import get_db, get_current_active_superuser
 from app.crud.character import character, character_tag
+from app.crud.character_embedding import character_embedding_crud
+from app.services.embedding_service import embedding_service
 from app.models.character import (
     CharacterCreate,
     CharacterUpdate,
     CharacterTagCreate,
     CharacterTagUpdate,
     CharacterSearchRequest,
+    CharacterSearchResponse,
 )
 from app.models.user import User
 from app.utils.response import success_response, error_response, not_found_response
@@ -20,7 +23,7 @@ router = APIRouter(prefix="/characters", tags=["characters"])
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_character(
+async def create_character(
     *,
     db: Session = Depends(get_db),
     character_in: CharacterCreate,
@@ -44,11 +47,21 @@ def create_character(
                 raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.create(db, obj_in=character_in)
+    
+    # 生成向量嵌入
+    try:
+        await embedding_service.generate_character_embeddings(character_obj, db)
+    except Exception as e:
+        # 记录错误但不影响角色创建
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"生成角色向量嵌入失败: {str(e)}")
+    
     return success_response(data=character_obj.model_dump(), msg="角色创建成功")
 
 
 @router.get("/search")
-def search_characters(
+async def search_characters(
     *,
     db: Session = Depends(get_db),
     query: str = Query(..., description="搜索查询"),
@@ -71,7 +84,24 @@ def search_characters(
         tag_ids=tag_ids,
         is_active=is_active,
     )
-    result = character.search(db, search_request=search_request)
+    
+    if search_type == "text":
+        result = character_embedding_crud.text_search_characters(db, search_request)
+    elif search_type == "vector":
+        # 生成查询向量
+        query_embedding = await embedding_service.generate_embedding(query)
+        result = character_embedding_crud.vector_search_characters(
+            db, search_request, query_embedding
+        )
+    elif search_type == "hybrid":
+        # 生成查询向量
+        query_embedding = await embedding_service.generate_embedding(query)
+        result = character_embedding_crud.hybrid_search_characters(
+            db, search_request, query_embedding
+        )
+    else:
+        raise HTTPException(status_code=400, detail="不支持的搜索类型")
+    
     return success_response(data=result.model_dump(), msg="搜索完成")
 
 
@@ -276,3 +306,81 @@ def delete_character_tag(
 
     tag_obj = character_tag.delete(db, id=tag_id)
     return success_response(data=tag_obj.model_dump(), msg="标签删除成功")
+
+
+# 向量嵌入管理相关路由
+@router.post("/{character_id}/embeddings/generate")
+async def generate_character_embeddings(
+    *,
+    db: Session = Depends(get_db),
+    character_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    为角色生成向量嵌入。
+
+    需要超级用户权限。
+    """
+    character_obj = character.get(db, id=character_id)
+    if not character_obj:
+        raise HTTPException(status_code=404, detail="角色未找到")
+
+    try:
+        embeddings = await embedding_service.generate_character_embeddings(
+            character_obj, db
+        )
+        return success_response(
+            data=[emb.model_dump() for emb in embeddings], 
+            msg="向量嵌入生成成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成向量嵌入失败: {str(e)}")
+
+
+@router.get("/{character_id}/embeddings")
+def get_character_embeddings(
+    *,
+    db: Session = Depends(get_db),
+    character_id: uuid.UUID,
+    embedding_type: Optional[str] = Query(None, description="嵌入类型过滤"),
+):
+    """
+    获取角色的向量嵌入。
+    """
+    character_obj = character.get(db, id=character_id)
+    if not character_obj:
+        raise HTTPException(status_code=404, detail="角色未找到")
+
+    embeddings = character_embedding_crud.get_character_embeddings(
+        db, character_id, embedding_type
+    )
+    return success_response(
+        data=[emb.model_dump() for emb in embeddings], 
+        msg="获取向量嵌入成功"
+    )
+
+
+@router.delete("/{character_id}/embeddings")
+def delete_character_embeddings(
+    *,
+    db: Session = Depends(get_db),
+    character_id: uuid.UUID,
+    embedding_type: Optional[str] = Query(None, description="嵌入类型过滤"),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    删除角色的向量嵌入。
+
+    需要超级用户权限。
+    """
+    character_obj = character.get(db, id=character_id)
+    if not character_obj:
+        raise HTTPException(status_code=404, detail="角色未找到")
+
+    count = character_embedding_crud.delete_character_embeddings(
+        db, character_id, embedding_type
+    )
+    return success_response(
+        data={"deleted_count": count}, 
+        msg="向量嵌入删除成功"
+    )

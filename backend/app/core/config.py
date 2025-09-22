@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+    
+    # OpenAI 配置
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-3.5-turbo"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
