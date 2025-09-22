@@ -23,8 +23,9 @@ class EmailData:
 
 
 def render_email_template(*, template_name: str, context: dict[str, Any]) -> str:
+    """渲染邮件模板"""
     template_str = (
-        Path(__file__).parent / "email-templates" / "build" / template_name
+        Path(__file__).parent.parent / "email-templates" / "build" / template_name
     ).read_text()
     html_content = Template(template_str).render(context)
     return html_content
@@ -36,6 +37,7 @@ def send_email(
     subject: str = "",
     html_content: str = "",
 ) -> None:
+    """发送邮件"""
     assert settings.emails_enabled, "no provided configuration for email variables"
     message = emails.Message(
         subject=subject,
@@ -56,6 +58,7 @@ def send_email(
 
 
 def generate_test_email(email_to: str) -> EmailData:
+    """生成测试邮件"""
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Test email"
     html_content = render_email_template(
@@ -66,6 +69,7 @@ def generate_test_email(email_to: str) -> EmailData:
 
 
 def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData:
+    """生成密码重置邮件"""
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Password recovery for user {email}"
     link = f"{settings.FRONTEND_HOST}/reset-password?token={token}"
@@ -85,6 +89,7 @@ def generate_reset_password_email(email_to: str, email: str, token: str) -> Emai
 def generate_new_account_email(
     email_to: str, username: str, password: str
 ) -> EmailData:
+    """生成新账户邮件"""
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - New account for user {username}"
     html_content = render_email_template(
@@ -101,6 +106,7 @@ def generate_new_account_email(
 
 
 def generate_password_reset_token(email: str) -> str:
+    """生成密码重置令牌"""
     delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
     now = datetime.now(timezone.utc)
     expires = now + delta
@@ -114,6 +120,7 @@ def generate_password_reset_token(email: str) -> str:
 
 
 def verify_password_reset_token(token: str) -> str | None:
+    """验证密码重置令牌"""
     try:
         decoded_token = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
