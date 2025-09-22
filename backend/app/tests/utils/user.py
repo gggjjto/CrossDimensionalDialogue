@@ -1,10 +1,9 @@
-from fastapi.testclient import TestClient
-from sqlmodel import Session
-
-from app.crud import user as crud_user
 from app.core.config import settings
+from app.crud import user as crud_user
 from app.models import User, UserCreate, UserUpdate
 from app.tests.utils.utils import random_email, random_lower_string
+from fastapi.testclient import TestClient
+from sqlmodel import Session
 
 
 def user_authentication_headers(

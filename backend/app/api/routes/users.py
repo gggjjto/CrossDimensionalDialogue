@@ -1,17 +1,10 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import col, delete, func, select
-
-from app.crud import user as crud_user
-from app.api.deps import (
-    CurrentUser,
-    SessionDep,
-    get_current_active_superuser,
-)
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
+from app.crud import user as crud_user
 from app.models import (
     Item,
     Message,
@@ -25,6 +18,9 @@ from app.models import (
     UserUpdateMe,
 )
 from app.utils import generate_new_account_email, send_email
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlmodel import col, delete, select
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -44,7 +40,6 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 
     statement = select(User).offset(skip).limit(limit)
     users = session.exec(statement).all()
-
     return UsersPublic(data=users, count=count)
 
 
@@ -84,7 +79,9 @@ def update_user_me(
     """
 
     if user_in.email:
-        existing_user = crud_user.get_user_by_email(session=session, email=user_in.email)
+        existing_user = crud_user.get_user_by_email(
+            session=session, email=user_in.email
+        )
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
@@ -195,7 +192,9 @@ def update_user(
             detail="The user with this id does not exist in the system",
         )
     if user_in.email:
-        existing_user = crud_user.get_user_by_email(session=session, email=user_in.email)
+        existing_user = crud_user.get_user_by_email(
+            session=session, email=user_in.email
+        )
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"

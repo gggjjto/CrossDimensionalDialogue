@@ -13,7 +13,7 @@ from app.utils.email import (
 __all__ = [
     "EmailData",
     "generate_new_account_email",
-    "generate_password_reset_token", 
+    "generate_password_reset_token",
     "generate_reset_password_email",
     "generate_test_email",
     "render_email_template",

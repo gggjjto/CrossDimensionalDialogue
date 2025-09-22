@@ -1,34 +1,29 @@
 # Models package
-from app.models.user import (
-    User,
-    UserBase,
-    UserCreate,
-    UserPublic,
-    UserRegister,
-    UserUpdate,
-    UserUpdateMe,
-    UpdatePassword,
-    UsersPublic,
-)
+from app.models.auth import Message, NewPassword, Token, TokenPayload
 from app.models.item import (
     Item,
     ItemBase,
     ItemCreate,
     ItemPublic,
-    ItemUpdate,
     ItemsPublic,
+    ItemUpdate,
 )
-from app.models.auth import (
-    Message,
-    NewPassword,
-    Token,
-    TokenPayload,
+from app.models.user import (
+    UpdatePassword,
+    User,
+    UserBase,
+    UserCreate,
+    UserPublic,
+    UserRegister,
+    UsersPublic,
+    UserUpdate,
+    UserUpdateMe,
 )
 
 __all__ = [
     # User models
     "User",
-    "UserBase", 
+    "UserBase",
     "UserCreate",
     "UserPublic",
     "UserRegister",
@@ -39,7 +34,7 @@ __all__ = [
     # Item models
     "Item",
     "ItemBase",
-    "ItemCreate", 
+    "ItemCreate",
     "ItemPublic",
     "ItemUpdate",
     "ItemsPublic",
