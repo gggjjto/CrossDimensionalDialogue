@@ -145,7 +145,10 @@ class CharacterEmbeddingCRUD:
         """向量搜索角色"""
         # 使用 pgvector 进行相似度搜索
         # 注意：这需要数据库支持 pgvector 扩展
-        stmt = """
+        # 将向量转换为字符串格式
+        vector_str = "[" + ",".join(map(str, query_embedding)) + "]"
+
+        stmt = f"""
         SELECT 
             c.id,
             c.name,
@@ -157,66 +160,64 @@ class CharacterEmbeddingCRUD:
             c.is_active,
             c.created_at,
             c.updated_at,
-            1 - (ce.embedding <=> :query_embedding) as similarity_score
+            1 - (ce.embedding <=> '{vector_str}'::vector) as similarity_score
         FROM characters c
         JOIN character_embeddings ce ON c.id = ce.character_id
-        WHERE ce.embedding_type = :embedding_type
-        AND c.is_active = :is_active
-        AND 1 - (ce.embedding <=> :query_embedding) > 0.5
+        WHERE ce.embedding_type = '{embedding_type}'
+        AND c.is_active = {search_request.is_active}
+        AND 1 - (ce.embedding <=> '{vector_str}'::vector) > 0.5
         """
 
-        params = {
-            "query_embedding": query_embedding,
-            "embedding_type": embedding_type,
-            "is_active": search_request.is_active,
-        }
+        params = {}
 
         # 添加标签过滤
         if search_request.tag_ids:
-            stmt += """
+            tag_ids_str = (
+                "{"
+                + ",".join([f'"{str(tag_id)}"' for tag_id in search_request.tag_ids])
+                + "}"
+            )
+            stmt += f"""
             AND c.id IN (
                 SELECT ctm.character_id 
                 FROM character_tag_maps ctm 
-                WHERE ctm.tag_id = ANY(:tag_ids)
+                WHERE ctm.tag_id = ANY('{tag_ids_str}'::uuid[])
             )
             """
-            params["tag_ids"] = search_request.tag_ids
 
-        stmt += """
-        ORDER BY ce.embedding <=> :query_embedding
-        LIMIT :limit OFFSET :offset
+        stmt += f"""
+        ORDER BY ce.embedding <=> '{vector_str}'::vector
+        LIMIT {search_request.limit} OFFSET {search_request.offset}
         """
-        params.update({"limit": search_request.limit, "offset": search_request.offset})
 
         # 获取总数
-        count_stmt = """
+        count_stmt = f"""
         SELECT COUNT(*)
         FROM characters c
         JOIN character_embeddings ce ON c.id = ce.character_id
-        WHERE ce.embedding_type = :embedding_type
-        AND c.is_active = :is_active
-        AND 1 - (ce.embedding <=> :query_embedding) > 0.5
+        WHERE ce.embedding_type = '{embedding_type}'
+        AND c.is_active = {search_request.is_active}
+        AND 1 - (ce.embedding <=> '{vector_str}'::vector) > 0.5
         """
-        count_params = {
-            "embedding_type": embedding_type,
-            "is_active": search_request.is_active,
-            "query_embedding": query_embedding,
-        }
 
         if search_request.tag_ids:
-            count_stmt += """
+            tag_ids_str = (
+                "{"
+                + ",".join([f'"{str(tag_id)}"' for tag_id in search_request.tag_ids])
+                + "}"
+            )
+            count_stmt += f"""
             AND c.id IN (
                 SELECT ctm.character_id 
                 FROM character_tag_maps ctm 
-                WHERE ctm.tag_id = ANY(:tag_ids)
+                WHERE ctm.tag_id = ANY('{tag_ids_str}'::uuid[])
             )
             """
-            count_params["tag_ids"] = search_request.tag_ids
 
-        total = session.exec(text(count_stmt), count_params).one()
+        total = session.exec(text(count_stmt)).one()[0]
 
         # 执行搜索
-        results_data = session.exec(text(stmt), params).all()
+        results_data = session.exec(text(stmt)).all()
 
         # 构建结果
         results = []

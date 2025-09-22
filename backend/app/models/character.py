@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from sqlmodel import Relationship, SQLModel, Field, JSON
+from pgvector.sqlalchemy import Vector
 
 
 # 标签表
@@ -145,14 +146,14 @@ class CharacterEmbeddingBase(SQLModel):
 
 
 class CharacterEmbeddingCreate(CharacterEmbeddingBase):
-    embedding: List[float] = Field(sa_type=JSON, description="向量数据")
+    embedding: List[float] = Field(description="向量数据")
 
 
 class CharacterEmbedding(CharacterEmbeddingBase, table=True):
     __tablename__ = "character_embeddings"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    embedding: List[float] = Field(sa_type=JSON, description="向量数据")
+    embedding: List[float] = Field(sa_type=Vector, description="向量数据")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # 关系
