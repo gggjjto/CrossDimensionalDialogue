@@ -44,7 +44,7 @@ def create_character(
                 raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.create(db, obj_in=character_in)
-    return success_response(data=character_obj, msg="角色创建成功")
+    return success_response(data=character_obj.model_dump(), msg="角色创建成功")
 
 
 @router.get("/search")
@@ -72,7 +72,7 @@ def search_characters(
         is_active=is_active,
     )
     result = character.search(db, search_request=search_request)
-    return success_response(data=result, msg="搜索完成")
+    return success_response(data=result.model_dump(), msg="搜索完成")
 
 
 @router.get("/")
@@ -93,7 +93,7 @@ def read_characters(
         db, skip=skip, limit=limit, is_active=is_active, tag_ids=tag_ids
     )
     return success_response(
-        data={"characters": characters, "total": total, "skip": skip, "limit": limit},
+        data={"characters": [char.model_dump() for char in characters], "total": total, "skip": skip, "limit": limit},
         msg="获取角色列表成功",
     )
 
@@ -109,8 +109,8 @@ def read_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
-        return not_found_response(resource="角色")
-    return success_response(data=character_obj, msg="获取角色详情成功")
+        raise HTTPException(status_code=404, detail="角色未找到")
+    return success_response(data=character_obj.model_dump(), msg="获取角色详情成功")
 
 
 @router.put("/{character_id}")
@@ -128,7 +128,7 @@ def update_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
-        return not_found_response(resource="角色")
+        raise HTTPException(status_code=404, detail="角色未找到")
 
     # 检查名称是否与其他角色冲突
     if character_in.name and character_in.name != character_obj.name:
@@ -144,7 +144,7 @@ def update_character(
                 raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.update(db, db_obj=character_obj, obj_in=character_in)
-    return success_response(data=character_obj, msg="角色更新成功")
+    return success_response(data=character_obj.model_dump(), msg="角色更新成功")
 
 
 @router.delete("/{character_id}")
@@ -161,10 +161,10 @@ def delete_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
-        return not_found_response(resource="角色")
+        raise HTTPException(status_code=404, detail="角色未找到")
 
     character_obj = character.delete(db, id=character_id)
-    return success_response(data=character_obj, msg="角色删除成功")
+    return success_response(data=character_obj.model_dump(), msg="角色删除成功")
 
 
 # 角色标签相关路由
@@ -201,7 +201,12 @@ def read_character_tags(
     """
     tags, total = character_tag.get_multi(db, skip=skip, limit=limit)
     return success_response(
-        data={"tags": [tag.model_dump() for tag in tags], "total": total, "skip": skip, "limit": limit},
+        data={
+            "tags": [tag.model_dump() for tag in tags],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
         msg="获取标签列表成功",
     )
 
@@ -217,7 +222,7 @@ def read_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
-        return not_found_response(resource="标签")
+        raise HTTPException(status_code=404, detail="标签未找到")
     return success_response(data=tag_obj.model_dump(), msg="获取标签详情成功")
 
 
@@ -236,7 +241,7 @@ def update_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
-        return not_found_response(resource="标签")
+        raise HTTPException(status_code=404, detail="标签未找到")
 
     # 检查名称是否与其他标签冲突
     if tag_in.name and tag_in.name != tag_obj.name:
@@ -262,7 +267,7 @@ def delete_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
-        return not_found_response(resource="标签")
+        raise HTTPException(status_code=404, detail="标签未找到")
 
     tag_obj = character_tag.delete(db, id=tag_id)
     return success_response(data=tag_obj.model_dump(), msg="标签删除成功")

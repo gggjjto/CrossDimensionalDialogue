@@ -42,13 +42,13 @@ class TestCharacterAPI:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["name"] == character_data["name"]
-        assert data["short_bio"] == character_data["short_bio"]
-        assert data["persona_text"] == character_data["persona_text"]
-        assert data["example_lines"] == character_data["example_lines"]
-        assert data["source"] == character_data["source"]
-        assert data["is_active"] is True
-        assert "id" in data
+        assert data["data"]["name"] == character_data["name"]
+        assert data["data"]["short_bio"] == character_data["short_bio"]
+        assert data["data"]["persona_text"] == character_data["persona_text"]
+        assert data["data"]["example_lines"] == character_data["example_lines"]
+        assert data["data"]["source"] == character_data["source"]
+        assert data["data"]["is_active"] is True
+        assert "id" in data["data"]
 
     def test_create_character_duplicate_name(
         self, client: TestClient, superuser_token_headers: Dict[str, str]
@@ -75,7 +75,7 @@ class TestCharacterAPI:
             headers=superuser_token_headers,
         )
         assert response2.status_code == 400
-        assert "角色名称已存在" in response2.json()["detail"]
+        assert "角色名称已存在" in response2.json()["msg"]
 
     def test_create_character_unauthorized(
         self, client: TestClient, normal_user_token_headers: Dict[str, str]
@@ -129,7 +129,7 @@ class TestCharacterAPI:
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
-        assert "count" in data
+        assert "total" in data["data"]
 
     def test_get_character_by_id(self, client: TestClient, db: Session) -> None:
         """测试根据ID获取角色"""
@@ -150,8 +150,8 @@ class TestCharacterAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == str(character_obj.id)
-        assert data["name"] == character_obj.name
+        assert data["data"]["id"] == str(character_obj.id)
+        assert data["data"]["name"] == character_obj.name
 
     def test_get_character_not_found(self, client: TestClient) -> None:
         """测试获取不存在的角色"""
@@ -159,7 +159,7 @@ class TestCharacterAPI:
         response = client.get(f"{settings.API_V1_STR}/characters/{fake_id}")
 
         assert response.status_code == 404
-        assert "角色未找到" in response.json()["detail"]
+        assert "角色未找到" in response.json()["msg"]
 
     def test_update_character(
         self, client: TestClient, db: Session, superuser_token_headers: Dict[str, str]
@@ -191,9 +191,9 @@ class TestCharacterAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["short_bio"] == update_data["short_bio"]
-        assert data["persona_text"] == update_data["persona_text"]
-        assert data["name"] == character_obj.name  # 未更新的字段保持不变
+        assert data["data"]["short_bio"] == update_data["short_bio"]
+        assert data["data"]["persona_text"] == update_data["persona_text"]
+        assert data["data"]["name"] == character_obj.name  # 未更新的字段保持不变
 
     def test_delete_character(
         self, client: TestClient, db: Session, superuser_token_headers: Dict[str, str]
@@ -219,7 +219,7 @@ class TestCharacterAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["is_active"] is False
+        assert data["data"]["is_active"] is False
 
     def test_search_characters(self, client: TestClient, db: Session) -> None:
         """测试搜索角色"""
@@ -241,12 +241,12 @@ class TestCharacterAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert "results" in data
-        assert "total" in data
-        assert "query" in data
-        assert "search_type" in data
-        assert len(data["results"]) == 1
-        assert data["results"][0]["character"]["name"] == "搜索测试角色"
+        assert "results" in data["data"]
+        assert "total" in data["data"]
+        assert "query" in data["data"]
+        assert "search_type" in data["data"]
+        assert len(data["data"]["results"]) == 1
+        assert data["data"]["results"][0]["character"]["name"] == "搜索测试角色"
 
 
 class TestCharacterTagAPI:
@@ -288,6 +288,7 @@ class TestCharacterTagAPI:
     ) -> None:
         """测试创建重复名称的标签"""
         import uuid
+
         unique_name = f"重复标签测试_{uuid.uuid4().hex[:8]}"
         tag_data = {
             "name": unique_name,
@@ -301,10 +302,11 @@ class TestCharacterTagAPI:
             headers=superuser_token_headers,
         )
         assert response1.status_code == 201
-        
+
         # 跟踪创建的标签以便清理
         tag_id = response1.json()["data"]["id"]
         from app.crud.character import character_tag
+
         tag_obj = character_tag.get(db, id=tag_id)
         if tag_obj:
             self.data_manager.track_tag(tag_obj)
