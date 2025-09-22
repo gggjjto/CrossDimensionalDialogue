@@ -22,6 +22,13 @@ async def test_vector_search():
     """测试向量搜索功能"""
     print("🚀 开始测试向量搜索功能...")
     
+    # 显示当前模型信息
+    try:
+        model_info = embedding_service.get_model_info()
+        print(f"📊 当前嵌入模型: {model_info['provider']} - {model_info['model_name']} ({model_info['dimension']}维)")
+    except Exception as e:
+        print(f"⚠️  获取模型信息失败: {str(e)}")
+    
     # 创建数据库连接
     engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
     

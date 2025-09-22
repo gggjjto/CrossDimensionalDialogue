@@ -23,6 +23,7 @@ dependencies = [
     "pyjwt<3.0.0,>=2.8.0",
     "pgvector>=0.4.1",
     "openai>=1.108.1",
+    "dashscope>=1.24.6",
 ]
 
 [tool.uv]

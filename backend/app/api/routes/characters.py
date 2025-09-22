@@ -47,16 +47,17 @@ async def create_character(
                 raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.create(db, obj_in=character_in)
-    
+
     # 生成向量嵌入
     try:
         await embedding_service.generate_character_embeddings(character_obj, db)
     except Exception as e:
         # 记录错误但不影响角色创建
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(f"生成角色向量嵌入失败: {str(e)}")
-    
+
     return success_response(data=character_obj.model_dump(), msg="角色创建成功")
 
 
@@ -84,7 +85,7 @@ async def search_characters(
         tag_ids=tag_ids,
         is_active=is_active,
     )
-    
+
     if search_type == "text":
         result = character_embedding_crud.text_search_characters(db, search_request)
     elif search_type == "vector":
@@ -101,7 +102,7 @@ async def search_characters(
         )
     else:
         raise HTTPException(status_code=400, detail="不支持的搜索类型")
-    
+
     return success_response(data=result.model_dump(), msg="搜索完成")
 
 
@@ -308,6 +309,46 @@ def delete_character_tag(
     return success_response(data=tag_obj.model_dump(), msg="标签删除成功")
 
 
+# 嵌入模型管理相关路由
+@router.get("/embeddings/model-info")
+def get_embedding_model_info(
+    *,
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    获取当前嵌入模型信息。
+
+    需要超级用户权限。
+    """
+    try:
+        model_info = embedding_service.get_model_info()
+        return success_response(data=model_info, msg="获取模型信息成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取模型信息失败: {str(e)}")
+
+
+@router.post("/embeddings/switch-provider")
+async def switch_embedding_provider(
+    *,
+    provider: str = Query(..., description="提供商名称: openai, aliyun"),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    切换嵌入模型提供商。
+
+    需要超级用户权限。
+    """
+    try:
+        await embedding_service.switch_provider(provider)
+        model_info = embedding_service.get_model_info()
+        return success_response(
+            data=model_info, 
+            msg=f"已切换到 {provider} 提供商"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"切换提供商失败: {str(e)}")
+
+
 # 向量嵌入管理相关路由
 @router.post("/{character_id}/embeddings/generate")
 async def generate_character_embeddings(
@@ -330,8 +371,7 @@ async def generate_character_embeddings(
             character_obj, db
         )
         return success_response(
-            data=[emb.model_dump() for emb in embeddings], 
-            msg="向量嵌入生成成功"
+            data=[emb.model_dump() for emb in embeddings], msg="向量嵌入生成成功"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成向量嵌入失败: {str(e)}")
@@ -355,8 +395,7 @@ def get_character_embeddings(
         db, character_id, embedding_type
     )
     return success_response(
-        data=[emb.model_dump() for emb in embeddings], 
-        msg="获取向量嵌入成功"
+        data=[emb.model_dump() for emb in embeddings], msg="获取向量嵌入成功"
     )
 
 
@@ -380,7 +419,4 @@ def delete_character_embeddings(
     count = character_embedding_crud.delete_character_embeddings(
         db, character_id, embedding_type
     )
-    return success_response(
-        data={"deleted_count": count}, 
-        msg="向量嵌入删除成功"
-    )
+    return success_response(data={"deleted_count": count}, msg="向量嵌入删除成功")

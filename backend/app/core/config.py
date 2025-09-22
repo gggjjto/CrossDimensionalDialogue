@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
-    BACKEND_CORS_ORIGINS: Annotated[
-        list[AnyUrl] | str, BeforeValidator(parse_cors)
-    ] = []
+    BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_cors)] = (
+        []
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -93,11 +93,22 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+    # 嵌入模型配置
+    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "openai"
     
     # OpenAI 配置
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-3.5-turbo"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    
+    # 阿里云配置
+    ALIYUN_API_KEY: str = ""
+    ALIYUN_EMBEDDING_MODEL: str = "text-embedding-v4"
+    
+    # 本地模型配置（可选）
+    LOCAL_EMBEDDING_MODEL_PATH: str = ""
+    LOCAL_EMBEDDING_DEVICE: str = "cpu"
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

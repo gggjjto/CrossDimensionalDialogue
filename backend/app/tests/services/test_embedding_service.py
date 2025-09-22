@@ -42,22 +42,16 @@ class TestEmbeddingService:
     @pytest.mark.asyncio
     async def test_generate_embedding(self, embedding_service):
         """测试生成向量嵌入"""
-        with patch.object(embedding_service.client.embeddings, 'create', new_callable=AsyncMock) as mock_create:
-            # 模拟 OpenAI API 响应
-            mock_response = MagicMock()
-            mock_response.data = [MagicMock()]
-            mock_response.data[0].embedding = [0.1, 0.2, 0.3] * 512  # 1536维向量
-            mock_create.return_value = mock_response
+        with patch.object(embedding_service.adapter, 'generate_embedding', new_callable=AsyncMock) as mock_generate:
+            # 模拟嵌入响应
+            mock_embedding = [0.1, 0.2, 0.3] * 512  # 1536维向量
+            mock_generate.return_value = mock_embedding
             
             result = await embedding_service.generate_embedding("测试文本")
             
             assert len(result) == 1536
             assert result[0] == 0.1
-            mock_create.assert_called_once_with(
-                model="text-embedding-3-small",
-                input="测试文本",
-                encoding_format="float"
-            )
+            mock_generate.assert_called_once_with("测试文本")
     
     @pytest.mark.asyncio
     async def test_generate_character_embeddings(self, embedding_service, mock_character, mock_session):
@@ -149,7 +143,37 @@ class TestEmbeddingService:
     
     def test_embedding_service_initialization(self):
         """测试嵌入服务初始化"""
-        service = EmbeddingService()
-        assert service.model_name == "text-embedding-3-small"
-        assert service.dimension == 1536
-        assert service.client is not None
+        with patch('app.services.embedding_service.settings') as mock_settings:
+            mock_settings.EMBEDDING_PROVIDER = "openai"
+            mock_settings.OPENAI_API_KEY = "test-key"
+            mock_settings.OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
+            
+            service = EmbeddingService()
+            assert service.model_name == "text-embedding-3-small"
+            assert service.dimension == 1536
+            assert service.adapter is not None
+    
+    @pytest.mark.asyncio
+    async def test_switch_provider(self, embedding_service):
+        """测试切换提供商"""
+        with patch('app.services.embedding_service.settings') as mock_settings:
+            mock_settings.EMBEDDING_PROVIDER = "aliyun"
+            mock_settings.ALIYUN_API_KEY = "test-key"
+            mock_settings.ALIYUN_EMBEDDING_MODEL = "text-embedding-v4"
+            
+            await embedding_service.switch_provider("aliyun")
+            assert embedding_service.adapter is not None
+    
+    def test_get_model_info(self, embedding_service):
+        """测试获取模型信息"""
+        with patch.object(embedding_service.adapter, 'get_model_info') as mock_info:
+            mock_info.return_value = {
+                "provider": "openai",
+                "model_name": "text-embedding-3-small",
+                "dimension": 1536
+            }
+            
+            info = embedding_service.get_model_info()
+            assert info["provider"] == "openai"
+            assert info["model_name"] == "text-embedding-3-small"
+            assert info["dimension"] == 1536
