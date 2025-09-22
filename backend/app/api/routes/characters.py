@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
-from app.api.deps import get_db, get_current_active_superuser, get_current_active_user
+from app.api.deps import get_db, get_current_active_superuser, get_current_user
 from app.crud.character import character, character_tag
 from app.models.character import (
     Character,
@@ -21,17 +21,18 @@ from app.models.character import (
     CharacterSearchResponse,
 )
 from app.models.user import User
+from app.utils.response import success_response, error_response, not_found_response
 
-router = APIRouter()
+router = APIRouter(tags=["characters"])
 
 
-@router.post("/", response_model=CharacterPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 def create_character(
     *,
     db: Session = Depends(get_db),
     character_in: CharacterCreate,
     current_user: User = Depends(get_current_active_superuser),
-) -> Character:
+):
     """
     创建新角色。
 
@@ -40,26 +41,20 @@ def create_character(
     # 检查角色名称是否已存在
     existing_character = character.get_by_name(db, name=character_in.name)
     if existing_character:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="角色名称已存在",
-        )
+        return error_response(msg="角色名称已存在", code=400)
 
     # 验证标签ID是否存在
     if character_in.tag_ids:
         for tag_id in character_in.tag_ids:
             existing_tag = character_tag.get(db, id=tag_id)
             if not existing_tag:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"标签ID {tag_id} 不存在",
-                )
+                return error_response(msg=f"标签ID {tag_id} 不存在", code=400)
 
     character_obj = character.create(db, obj_in=character_in)
-    return character_obj
+    return success_response(data=character_obj, msg="角色创建成功")
 
 
-@router.get("/", response_model=CharactersPublic)
+@router.get("/")
 def read_characters(
     *,
     db: Session = Depends(get_db),
@@ -67,7 +62,7 @@ def read_characters(
     limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
     is_active: Optional[bool] = Query(None, description="是否只返回可用角色"),
     tag_ids: Optional[List[uuid.UUID]] = Query(None, description="标签ID过滤"),
-) -> CharactersPublic:
+):
     """
     获取角色列表。
 
@@ -76,10 +71,13 @@ def read_characters(
     characters, total = character.get_multi(
         db, skip=skip, limit=limit, is_active=is_active, tag_ids=tag_ids
     )
-    return CharactersPublic(data=characters, count=total)
+    return success_response(
+        data={"characters": characters, "total": total, "skip": skip, "limit": limit},
+        msg="获取角色列表成功",
+    )
 
 
-@router.get("/search", response_model=CharacterSearchResponse)
+@router.get("/search")
 def search_characters(
     *,
     db: Session = Depends(get_db),
@@ -89,7 +87,7 @@ def search_characters(
     offset: int = Query(0, ge=0, description="偏移量"),
     tag_ids: Optional[List[uuid.UUID]] = Query(None, description="标签过滤"),
     is_active: Optional[bool] = Query(True, description="是否只搜索可用角色"),
-) -> CharacterSearchResponse:
+):
     """
     搜索角色。
 
@@ -103,35 +101,33 @@ def search_characters(
         tag_ids=tag_ids,
         is_active=is_active,
     )
-    return character.search(db, search_request=search_request)
+    result = character.search(db, search_request=search_request)
+    return success_response(data=result, msg="搜索完成")
 
 
-@router.get("/{character_id}", response_model=CharacterPublic)
+@router.get("/{character_id}")
 def read_character(
     *,
     db: Session = Depends(get_db),
     character_id: uuid.UUID,
-) -> Character:
+):
     """
     根据ID获取角色详情。
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色未找到",
-        )
-    return character_obj
+        return not_found_response(resource="角色")
+    return success_response(data=character_obj, msg="获取角色详情成功")
 
 
-@router.put("/{character_id}", response_model=CharacterPublic)
+@router.put("/{character_id}")
 def update_character(
     *,
     db: Session = Depends(get_db),
     character_id: uuid.UUID,
     character_in: CharacterUpdate,
     current_user: User = Depends(get_current_active_superuser),
-) -> Character:
+):
     """
     更新角色信息。
 
@@ -139,41 +135,32 @@ def update_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色未找到",
-        )
+        return not_found_response(resource="角色")
 
     # 检查名称是否与其他角色冲突
     if character_in.name and character_in.name != character_obj.name:
         existing_character = character.get_by_name(db, name=character_in.name)
         if existing_character and existing_character.id != character_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="角色名称已存在",
-            )
+            return error_response(msg="角色名称已存在", code=400)
 
     # 验证标签ID是否存在
     if character_in.tag_ids is not None:
         for tag_id in character_in.tag_ids:
             existing_tag = character_tag.get(db, id=tag_id)
             if not existing_tag:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"标签ID {tag_id} 不存在",
-                )
+                return error_response(msg=f"标签ID {tag_id} 不存在", code=400)
 
     character_obj = character.update(db, db_obj=character_obj, obj_in=character_in)
-    return character_obj
+    return success_response(data=character_obj, msg="角色更新成功")
 
 
-@router.delete("/{character_id}", response_model=CharacterPublic)
+@router.delete("/{character_id}")
 def delete_character(
     *,
     db: Session = Depends(get_db),
     character_id: uuid.UUID,
     current_user: User = Depends(get_current_active_superuser),
-) -> Character:
+):
     """
     删除角色（软删除）。
 
@@ -181,23 +168,20 @@ def delete_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色未找到",
-        )
+        return not_found_response(resource="角色")
 
     character_obj = character.delete(db, id=character_id)
-    return character_obj
+    return success_response(data=character_obj, msg="角色删除成功")
 
 
 # 角色标签相关路由
-@router.post("/tags/", response_model=CharacterTagPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/tags/", status_code=status.HTTP_201_CREATED)
 def create_character_tag(
     *,
     db: Session = Depends(get_db),
     tag_in: CharacterTagCreate,
     current_user: User = Depends(get_current_active_superuser),
-) -> CharacterTag:
+):
     """
     创建新标签。
 
@@ -206,55 +190,52 @@ def create_character_tag(
     # 检查标签名称是否已存在
     existing_tag = character_tag.get_by_name(db, name=tag_in.name)
     if existing_tag:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="标签名称已存在",
-        )
+        return error_response(msg="标签名称已存在", code=400)
 
     tag_obj = character_tag.create(db, obj_in=tag_in)
-    return tag_obj
+    return success_response(data=tag_obj, msg="标签创建成功")
 
 
-@router.get("/tags/", response_model=CharacterTagsPublic)
+@router.get("/tags/")
 def read_character_tags(
     *,
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
-) -> CharacterTagsPublic:
+):
     """
     获取标签列表。
     """
     tags, total = character_tag.get_multi(db, skip=skip, limit=limit)
-    return CharacterTagsPublic(data=tags, count=total)
+    return success_response(
+        data={"tags": tags, "total": total, "skip": skip, "limit": limit},
+        msg="获取标签列表成功",
+    )
 
 
-@router.get("/tags/{tag_id}", response_model=CharacterTagPublic)
+@router.get("/tags/{tag_id}")
 def read_character_tag(
     *,
     db: Session = Depends(get_db),
     tag_id: uuid.UUID,
-) -> CharacterTag:
+):
     """
     根据ID获取标签详情。
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="标签未找到",
-        )
-    return tag_obj
+        return not_found_response(resource="标签")
+    return success_response(data=tag_obj, msg="获取标签详情成功")
 
 
-@router.put("/tags/{tag_id}", response_model=CharacterTagPublic)
+@router.put("/tags/{tag_id}")
 def update_character_tag(
     *,
     db: Session = Depends(get_db),
     tag_id: uuid.UUID,
     tag_in: CharacterTagUpdate,
     current_user: User = Depends(get_current_active_superuser),
-) -> CharacterTag:
+):
     """
     更新标签信息。
 
@@ -262,31 +243,25 @@ def update_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="标签未找到",
-        )
+        return not_found_response(resource="标签")
 
     # 检查名称是否与其他标签冲突
     if tag_in.name and tag_in.name != tag_obj.name:
         existing_tag = character_tag.get_by_name(db, name=tag_in.name)
         if existing_tag and existing_tag.id != tag_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="标签名称已存在",
-            )
+            return error_response(msg="标签名称已存在", code=400)
 
     tag_obj = character_tag.update(db, db_obj=tag_obj, obj_in=tag_in)
-    return tag_obj
+    return success_response(data=tag_obj, msg="标签更新成功")
 
 
-@router.delete("/tags/{tag_id}", response_model=CharacterTagPublic)
+@router.delete("/tags/{tag_id}")
 def delete_character_tag(
     *,
     db: Session = Depends(get_db),
     tag_id: uuid.UUID,
     current_user: User = Depends(get_current_active_superuser),
-) -> CharacterTag:
+):
     """
     删除标签。
 
@@ -294,10 +269,7 @@ def delete_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="标签未找到",
-        )
+        return not_found_response(resource="标签")
 
     tag_obj = character_tag.delete(db, id=tag_id)
-    return tag_obj
+    return success_response(data=tag_obj, msg="标签删除成功")

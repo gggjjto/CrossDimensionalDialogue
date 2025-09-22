@@ -43,7 +43,9 @@ class CharacterCRUD:
         statement = (
             select(Character)
             .where(Character.id == id)
-            .options(selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag))
+            .options(
+                selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag)
+            )
         )
         return db.exec(statement).first()
 
@@ -52,7 +54,9 @@ class CharacterCRUD:
         statement = (
             select(Character)
             .where(Character.name == name)
-            .options(selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag))
+            .options(
+                selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag)
+            )
         )
         return db.exec(statement).first()
 
@@ -66,9 +70,8 @@ class CharacterCRUD:
         tag_ids: Optional[List[uuid.UUID]] = None,
     ) -> Tuple[List[Character], int]:
         """获取角色列表"""
-        statement = (
-            select(Character)
-            .options(selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag))
+        statement = select(Character).options(
+            selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag)
         )
 
         # 应用过滤条件
@@ -94,15 +97,19 @@ class CharacterCRUD:
         total = db.exec(count_statement).one()
 
         # 获取数据
-        statement = statement.offset(skip).limit(limit).order_by(Character.created_at.desc())
+        statement = (
+            statement.offset(skip).limit(limit).order_by(Character.created_at.desc())
+        )
         characters = db.exec(statement).all()
 
         return characters, total
 
-    def update(self, db: Session, *, db_obj: Character, obj_in: CharacterUpdate) -> Character:
+    def update(
+        self, db: Session, *, db_obj: Character, obj_in: CharacterUpdate
+    ) -> Character:
         """更新角色"""
         update_data = obj_in.model_dump(exclude_unset=True, exclude={"tag_ids"})
-        
+
         for field, value in update_data.items():
             setattr(db_obj, field, value)
 
@@ -156,7 +163,7 @@ class CharacterCRUD:
     ) -> CharacterSearchResponse:
         """文本搜索"""
         query = search_request.query.lower()
-        
+
         # 构建搜索条件
         conditions = [
             or_(
@@ -186,7 +193,9 @@ class CharacterCRUD:
         statement = (
             select(Character)
             .where(and_(*conditions))
-            .options(selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag))
+            .options(
+                selectinload(Character.tag_relations).selectinload(CharacterTagMap.tag)
+            )
             .offset(search_request.offset)
             .limit(search_request.limit)
             .order_by(Character.created_at.desc())
@@ -267,10 +276,7 @@ class CharacterTagCRUD:
 
         # 获取数据
         statement = (
-            select(CharacterTag)
-            .offset(skip)
-            .limit(limit)
-            .order_by(CharacterTag.name)
+            select(CharacterTag).offset(skip).limit(limit).order_by(CharacterTag.name)
         )
         tags = db.exec(statement).all()
 

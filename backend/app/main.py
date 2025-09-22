@@ -1,6 +1,7 @@
 import sentry_sdk
-from app.api.v1.main import api_router
+from app.api.main import api_router
 from app.core.config import settings
+from app.middleware.exception_handler import setup_exception_handlers
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
@@ -28,5 +29,8 @@ if settings.all_cors_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# 设置全局异常处理器
+setup_exception_handlers(app)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
