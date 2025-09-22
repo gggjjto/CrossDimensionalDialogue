@@ -93,7 +93,12 @@ def read_characters(
         db, skip=skip, limit=limit, is_active=is_active, tag_ids=tag_ids
     )
     return success_response(
-        data={"characters": [char.model_dump() for char in characters], "total": total, "skip": skip, "limit": limit},
+        data={
+            "characters": [char.model_dump() for char in characters],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
         msg="获取角色列表成功",
     )
 
