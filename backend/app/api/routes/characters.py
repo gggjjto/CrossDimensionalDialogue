@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlmodel import Session
 
 from app.api.deps import get_db, get_current_active_superuser
@@ -34,14 +34,14 @@ def create_character(
     # 检查角色名称是否已存在
     existing_character = character.get_by_name(db, name=character_in.name)
     if existing_character:
-        return error_response(msg="角色名称已存在", code=400)
+        raise HTTPException(status_code=400, detail="角色名称已存在")
 
     # 验证标签ID是否存在
     if character_in.tag_ids:
         for tag_id in character_in.tag_ids:
             existing_tag = character_tag.get(db, id=tag_id)
             if not existing_tag:
-                return error_response(msg=f"标签ID {tag_id} 不存在", code=400)
+                raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.create(db, obj_in=character_in)
     return success_response(data=character_obj, msg="角色创建成功")
@@ -134,14 +134,14 @@ def update_character(
     if character_in.name and character_in.name != character_obj.name:
         existing_character = character.get_by_name(db, name=character_in.name)
         if existing_character and existing_character.id != character_id:
-            return error_response(msg="角色名称已存在", code=400)
+            raise HTTPException(status_code=400, detail="角色名称已存在")
 
     # 验证标签ID是否存在
     if character_in.tag_ids is not None:
         for tag_id in character_in.tag_ids:
             existing_tag = character_tag.get(db, id=tag_id)
             if not existing_tag:
-                return error_response(msg=f"标签ID {tag_id} 不存在", code=400)
+                raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.update(db, db_obj=character_obj, obj_in=character_in)
     return success_response(data=character_obj, msg="角色更新成功")
@@ -183,10 +183,10 @@ def create_character_tag(
     # 检查标签名称是否已存在
     existing_tag = character_tag.get_by_name(db, name=tag_in.name)
     if existing_tag:
-        return error_response(msg="标签名称已存在", code=400)
+        raise HTTPException(status_code=400, detail="标签名称已存在")
 
     tag_obj = character_tag.create(db, obj_in=tag_in)
-    return success_response(data=tag_obj, msg="标签创建成功")
+    return success_response(data=tag_obj.model_dump(), msg="标签创建成功")
 
 
 @router.get("/tags/")
@@ -201,7 +201,7 @@ def read_character_tags(
     """
     tags, total = character_tag.get_multi(db, skip=skip, limit=limit)
     return success_response(
-        data={"tags": tags, "total": total, "skip": skip, "limit": limit},
+        data={"tags": [tag.model_dump() for tag in tags], "total": total, "skip": skip, "limit": limit},
         msg="获取标签列表成功",
     )
 
@@ -218,7 +218,7 @@ def read_character_tag(
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
         return not_found_response(resource="标签")
-    return success_response(data=tag_obj, msg="获取标签详情成功")
+    return success_response(data=tag_obj.model_dump(), msg="获取标签详情成功")
 
 
 @router.put("/tags/{tag_id}")
@@ -242,10 +242,10 @@ def update_character_tag(
     if tag_in.name and tag_in.name != tag_obj.name:
         existing_tag = character_tag.get_by_name(db, name=tag_in.name)
         if existing_tag and existing_tag.id != tag_id:
-            return error_response(msg="标签名称已存在", code=400)
+            raise HTTPException(status_code=400, detail="标签名称已存在")
 
     tag_obj = character_tag.update(db, db_obj=tag_obj, obj_in=tag_in)
-    return success_response(data=tag_obj, msg="标签更新成功")
+    return success_response(data=tag_obj.model_dump(), msg="标签更新成功")
 
 
 @router.delete("/tags/{tag_id}")
@@ -265,4 +265,4 @@ def delete_character_tag(
         return not_found_response(resource="标签")
 
     tag_obj = character_tag.delete(db, id=tag_id)
-    return success_response(data=tag_obj, msg="标签删除成功")
+    return success_response(data=tag_obj.model_dump(), msg="标签删除成功")

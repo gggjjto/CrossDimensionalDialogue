@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.db import engine, init_db
 from app.main import app
 from app.models import Item, User
+from app.models.character import Character, CharacterTag, CharacterTagMap, CharacterEmbedding
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
 
@@ -17,6 +18,15 @@ def db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         init_db(session)
         yield session
+        # 按依赖关系顺序删除数据
+        statement = delete(CharacterEmbedding)
+        session.execute(statement)
+        statement = delete(CharacterTagMap)
+        session.execute(statement)
+        statement = delete(Character)
+        session.execute(statement)
+        statement = delete(CharacterTag)
+        session.execute(statement)
         statement = delete(Item)
         session.execute(statement)
         statement = delete(User)

@@ -278,17 +278,19 @@ class TestCharacterTagAPI:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["name"] == tag_data["name"]
-        assert data["description"] == tag_data["description"]
-        assert data["color"] == tag_data["color"]
-        assert "id" in data
+        assert data["data"]["name"] == tag_data["name"]
+        assert data["data"]["description"] == tag_data["description"]
+        assert data["data"]["color"] == tag_data["color"]
+        assert "id" in data["data"]
 
     def test_create_character_tag_duplicate_name(
-        self, client: TestClient, superuser_token_headers: Dict[str, str]
+        self, client: TestClient, db: Session, superuser_token_headers: Dict[str, str]
     ) -> None:
         """测试创建重复名称的标签"""
+        import uuid
+        unique_name = f"重复标签测试_{uuid.uuid4().hex[:8]}"
         tag_data = {
-            "name": "重复标签测试",
+            "name": unique_name,
             "description": "测试重复标签名称",
         }
 
@@ -299,6 +301,13 @@ class TestCharacterTagAPI:
             headers=superuser_token_headers,
         )
         assert response1.status_code == 201
+        
+        # 跟踪创建的标签以便清理
+        tag_id = response1.json()["data"]["id"]
+        from app.crud.character import character_tag
+        tag_obj = character_tag.get(db, id=tag_id)
+        if tag_obj:
+            self.data_manager.track_tag(tag_obj)
 
         # 第二次创建相同名称
         response2 = client.post(
@@ -307,7 +316,7 @@ class TestCharacterTagAPI:
             headers=superuser_token_headers,
         )
         assert response2.status_code == 400
-        assert "标签名称已存在" in response2.json()["detail"]
+        assert "标签名称已存在" in response2.json()["msg"]
 
     def test_get_character_tags(self, client: TestClient) -> None:
         """测试获取标签列表"""
@@ -316,8 +325,8 @@ class TestCharacterTagAPI:
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
-        assert "count" in data
-        assert isinstance(data["data"], list)
+        assert "total" in data["data"]
+        assert isinstance(data["data"]["tags"], list)
 
     def test_get_character_tag_by_id(self, client: TestClient, db: Session) -> None:
         """测试根据ID获取标签"""
@@ -337,8 +346,8 @@ class TestCharacterTagAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == str(tag_obj.id)
-        assert data["name"] == tag_obj.name
+        assert data["data"]["id"] == str(tag_obj.id)
+        assert data["data"]["name"] == tag_obj.name
 
     def test_update_character_tag(
         self, client: TestClient, db: Session, superuser_token_headers: Dict[str, str]
@@ -369,9 +378,9 @@ class TestCharacterTagAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["description"] == update_data["description"]
-        assert data["color"] == update_data["color"]
-        assert data["name"] == tag_obj.name  # 未更新的字段保持不变
+        assert data["data"]["description"] == update_data["description"]
+        assert data["data"]["color"] == update_data["color"]
+        assert data["data"]["name"] == tag_obj.name  # 未更新的字段保持不变
 
     def test_delete_character_tag(
         self, client: TestClient, db: Session, superuser_token_headers: Dict[str, str]
@@ -396,4 +405,4 @@ class TestCharacterTagAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["name"] == tag_obj.name
+        assert data["data"]["name"] == tag_obj.name
