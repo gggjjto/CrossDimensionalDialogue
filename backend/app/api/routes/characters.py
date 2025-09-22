@@ -1,24 +1,17 @@
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlmodel import Session
 
-from app.api.deps import get_db, get_current_active_superuser, get_current_user
+from app.api.deps import get_db, get_current_active_superuser
 from app.crud.character import character, character_tag
 from app.models.character import (
-    Character,
     CharacterCreate,
     CharacterUpdate,
-    CharacterPublic,
-    CharactersPublic,
-    CharacterTag,
     CharacterTagCreate,
     CharacterTagUpdate,
-    CharacterTagPublic,
-    CharacterTagsPublic,
     CharacterSearchRequest,
-    CharacterSearchResponse,
 )
 from app.models.user import User
 from app.utils.response import success_response, error_response, not_found_response

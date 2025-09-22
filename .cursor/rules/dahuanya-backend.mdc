@@ -19,6 +19,7 @@ python & FastAPI实现：
 - 为所有函数签名实现全面的类型提示
 - 输入验证优先使用Pydantic模型而非原始字典
 - 使用清晰的结构组织文件：路由、模型、模式、工具函数
+- 统一返回数据规范
 ~~~python
 # 良好函数结构示例
 from typing import Annotated
