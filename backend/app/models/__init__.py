@@ -19,6 +19,7 @@ from app.models.character import (
     CharacterTagMap,
     CharacterTagMapBase,
     CharacterTagPublic,
+    CharacterTagsPublic,
     CharacterTagUpdate,
     CharacterUpdate,
 )
@@ -71,6 +72,7 @@ __all__ = [
     "CharacterTagBase",
     "CharacterTagCreate",
     "CharacterTagPublic",
+    "CharacterTagsPublic",
     "CharacterTagUpdate",
     "CharacterTagMap",
     "CharacterTagMapBase",

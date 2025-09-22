@@ -43,6 +43,11 @@ class CharacterTagPublic(CharacterTagBase):
     updated_at: datetime
 
 
+class CharacterTagsPublic(SQLModel):
+    data: List[CharacterTagPublic]
+    count: int
+
+
 # 角色基本信息
 class CharacterBase(SQLModel):
     name: str = Field(max_length=100, index=True, description="角色名称")
