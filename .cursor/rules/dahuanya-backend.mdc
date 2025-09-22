@@ -191,8 +191,8 @@ app/
 - 基础设施：Docker/K8s，GitHub Actions
 
 
-运行python文件
-- 要确保在虚拟环境中运行
+运行python文件，使用bash命令时
+- 一定要确保在虚拟环境中运行
 ~~~~bash
 cd backend
 ./.venv/Scripts/Activate.ps1

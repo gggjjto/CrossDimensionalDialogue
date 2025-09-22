@@ -156,7 +156,7 @@ class TestCharacterCRUD:
         # 使用唯一的名称和搜索词避免冲突
         unique_suffix = uuid.uuid4().hex[:8]
         unique_name = f"搜索测试角色_{unique_suffix}"
-        
+
         character_data = CharacterCreate(
             name=unique_name,
             short_bio=f"这是一个用于搜索测试的角色_{unique_suffix}",
@@ -184,7 +184,7 @@ class TestCharacterCRUD:
             if search_result.character.id == character_obj.id:
                 found_character = search_result
                 break
-        
+
         assert found_character is not None
         assert found_character.character.name == unique_name
 
