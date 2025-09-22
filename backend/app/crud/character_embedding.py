@@ -186,10 +186,7 @@ class CharacterEmbeddingCRUD:
         ORDER BY ce.embedding <=> :query_embedding
         LIMIT :limit OFFSET :offset
         """
-        params.update({
-            "limit": search_request.limit,
-            "offset": search_request.offset
-        })
+        params.update({"limit": search_request.limit, "offset": search_request.offset})
 
         # 获取总数
         count_stmt = """
@@ -203,7 +200,7 @@ class CharacterEmbeddingCRUD:
         count_params = {
             "embedding_type": embedding_type,
             "is_active": search_request.is_active,
-            "query_embedding": query_embedding
+            "query_embedding": query_embedding,
         }
 
         if search_request.tag_ids:

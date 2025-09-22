@@ -9,6 +9,56 @@
 
 Start the local development environment with Docker Compose following the guide in [../development.md](../development.md).
 
+### 支持 pgvector 的向量搜索
+
+本项目支持 PostgreSQL 的 pgvector 扩展，用于向量相似度搜索功能。
+
+#### 快速启动（支持 pgvector）
+
+**Windows:**
+```console
+scripts\start-with-pgvector.bat
+```
+
+**Linux/macOS:**
+```console
+./scripts/start-with-pgvector.sh
+```
+
+#### 手动启动
+
+1. 使用支持 pgvector 的 PostgreSQL 镜像：
+```yaml
+# docker-compose.yml 中已配置
+image: pgvector/pgvector:pg17
+```
+
+2. 启动服务：
+```console
+docker-compose up -d
+```
+
+3. 验证 pgvector 扩展：
+```console
+python app/scripts/test_pgvector.py
+```
+
+4. 测试向量搜索：
+```console
+python app/scripts/test_vector_search.py
+```
+
+#### 向量搜索功能
+
+- **文本搜索**: 基于关键词的传统搜索
+- **向量搜索**: 基于语义相似度的 AI 搜索
+- **混合搜索**: 结合文本和向量搜索的智能搜索
+
+支持的嵌入模型提供商：
+- OpenAI (text-embedding-3-small, text-embedding-3-large)
+- 阿里云 (text-embedding-v4)
+- 本地模型（可扩展）
+
 ## General Workflow
 
 By default, the dependencies are managed with [uv](https://docs.astral.sh/uv/), go there and install it.
