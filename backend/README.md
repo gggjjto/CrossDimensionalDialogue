@@ -59,6 +59,42 @@ python app/scripts/test_vector_search.py
 - 阿里云 (text-embedding-v4)
 - 本地模型（可扩展）
 
+## 角色管理系统
+
+### 核心功能
+
+- **角色管理**: 创建、更新、删除、查询角色
+- **标签系统**: 支持角色分类和标签管理
+- **向量搜索**: 基于语义相似度的智能搜索
+- **多模型支持**: 支持多种嵌入模型提供商
+- **混合搜索**: 结合文本和向量搜索的综合搜索
+
+### 快速开始
+
+1. **查看文档**:
+   - [快速开始指南](docs/quick_start.md)
+   - [完整功能文档](docs/character_management.md)
+   - [API使用示例](docs/api_examples.md)
+
+2. **测试功能**:
+   ```bash
+   # 测试嵌入模型
+   python app/scripts/test_embedding_models.py
+   
+   # 测试向量搜索
+   python app/scripts/test_vector_search_final.py
+   ```
+
+3. **API文档**: 访问 `http://localhost:8000/docs` 查看完整API文档
+
+### 主要特性
+
+- **智能搜索**: 支持文本搜索、向量搜索和混合搜索
+- **多语言支持**: 支持中文和英文语义理解
+- **实时切换**: 支持运行时切换嵌入模型提供商
+- **高性能**: 基于pgvector的高效向量相似度计算
+- **可扩展**: 支持添加新的嵌入模型提供商
+
 ## General Workflow
 
 By default, the dependencies are managed with [uv](https://docs.astral.sh/uv/), go there and install it.

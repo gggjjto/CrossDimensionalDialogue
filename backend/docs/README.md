@@ -1,217 +1,156 @@
-# 后端文档
+# 大话鸭角色管理系统文档
 
-欢迎来到 dahuanya 项目后端文档！这里包含了项目的技术文档、API接口说明和开发指南。
+欢迎使用大话鸭AI角色扮演平台的角色管理系统！本系统提供了完整的角色管理、向量搜索和智能推荐功能。
 
-## 📚 文档目录
+## 📚 文档导航
 
-### 核心文档
-- [项目架构设计](./framework.md) - 整体架构设计和技术选型
-- [API统一返回格式](./api_response_format.md) - 统一响应规范和异常处理
-- [角色管理API](./character_api.md) - 角色和标签管理接口文档
+### 🚀 快速开始
+- [快速开始指南](quick_start.md) - 5分钟快速体验系统功能
+- [API使用示例](api_examples.md) - 详细的API调用示例和代码
 
-### 开发指南
-- [开发规范](../.cursor/rules/dahuanya-backend.mdc) - 后端开发规范和最佳实践
-- [Git提交规范](../.cursor/rules/dahuanya-git.mdc) - Git工作流和提交规范
-- [包管理规范](../.cursor/rules/dahuanya-uv.mdc) - uv包管理工具使用指南
+### 📖 完整文档
+- [角色管理系统文档](character_management.md) - 完整的功能说明和技术文档
+- [框架架构文档](framework.md) - 整体系统架构和设计理念
 
-## 🚀 快速开始
+## 🎯 核心功能
 
-### 环境要求
-- Python 3.10+
-- PostgreSQL 12+
-- Redis 6+
-- uv (包管理工具)
+### 角色管理
+- ✅ 角色的创建、更新、删除和查询
+- ✅ 支持角色头像、简介、人格定义等完整信息
+- ✅ 示例台词和来源信息管理
 
-### 安装和运行
+### 标签系统
+- ✅ 灵活的标签分类系统
+- ✅ 支持标签颜色和描述
+- ✅ 角色-标签多对多关系
 
-1. **克隆项目**
-```bash
-git clone <repository-url>
-cd dahuanya/backend
+### 智能搜索
+- ✅ **文本搜索**: 基于关键词的传统搜索
+- ✅ **向量搜索**: 基于语义相似度的AI搜索
+- ✅ **混合搜索**: 结合文本和向量的智能搜索
+
+### 多模型支持
+- ✅ **阿里云 text-embedding-v4**: 1024维，中文优化
+- ✅ **OpenAI text-embedding-3-small**: 1536维，多语言支持
+- ✅ **动态切换**: 运行时切换嵌入模型提供商
+
+## 🛠️ 技术特性
+
+### 高性能
+- 基于PostgreSQL + pgvector的向量数据库
+- 高效的向量相似度计算
+- 支持大规模角色数据
+
+### 可扩展
+- 适配器模式支持多种嵌入模型
+- 模块化设计便于功能扩展
+- 支持自定义嵌入模型提供商
+
+### 易用性
+- 完整的RESTful API
+- 详细的API文档和示例
+- 丰富的测试用例
+
+## 📊 系统架构
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   前端界面      │    │   API网关       │    │   后端服务      │
+│   React/Vue     │◄──►│   FastAPI       │◄──►│   角色管理      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                        │
+                       ┌─────────────────┐              │
+                       │   嵌入模型      │◄─────────────┘
+                       │   OpenAI/阿里云  │
+                       └─────────────────┘
+                                │
+                       ┌─────────────────┐
+                       │   向量数据库    │
+                       │ PostgreSQL+     │
+                       │ pgvector        │
+                       └─────────────────┘
 ```
 
-2. **安装依赖**
+## 🚀 快速体验
+
+### 1. 环境准备
 ```bash
+cd backend
+.\.venv\Scripts\Activate.ps1
 uv sync
 ```
 
-3. **配置环境变量**
+### 2. 启动服务
 ```bash
-cp .env.example .env
-# 编辑 .env 文件，配置数据库和Redis连接信息
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-4. **运行数据库迁移**
+### 3. 测试功能
 ```bash
-alembic upgrade head
+# 测试嵌入模型
+python app/scripts/test_embedding_models.py
+
+# 测试向量搜索
+python app/scripts/test_vector_search_final.py
 ```
 
-5. **启动服务**
+### 4. 查看API文档
+访问 `http://localhost:8000/docs` 查看完整的API文档
+
+## 📈 性能指标
+
+- **向量维度**: 1024维（阿里云）/ 1536维（OpenAI）
+- **搜索精度**: 相似度阈值0.5，实际结果0.53+
+- **响应时间**: 毫秒级向量搜索
+- **并发支持**: 支持高并发API请求
+
+## 🔧 配置说明
+
+### 环境变量
 ```bash
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# 嵌入模型配置
+EMBEDDING_PROVIDER=aliyun  # 或 openai
+
+# API密钥
+OPENAI_API_KEY=your_openai_api_key
+ALIYUN_API_KEY=your_aliyun_api_key
 ```
 
-6. **访问API文档**
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## 🏗️ 项目架构
-
-### 技术栈
-- **后端框架**: FastAPI + SQLModel + Pydantic
-- **数据库**: PostgreSQL + pgvector (向量搜索)
-- **缓存**: Redis
-- **认证**: JWT + bcrypt
-- **部署**: Docker + Docker Compose
-
-### 目录结构
-```
-backend/
-├── app/
-│   ├── api/              # API路由
-│   │   ├── routes/       # 具体路由实现
-│   │   └── deps.py       # 依赖注入
-│   ├── core/             # 核心配置
-│   │   ├── config.py     # 配置管理
-│   │   ├── db.py         # 数据库连接
-│   │   └── security.py   # 安全相关
-│   ├── crud/             # 数据库操作
-│   ├── models/           # 数据模型
-│   ├── middleware/       # 中间件
-│   ├── utils/            # 工具函数
-│   └── main.py           # 应用入口
-├── docs/                 # 项目文档
-├── tests/                # 测试文件
-└── alembic/              # 数据库迁移
+### 数据库配置
+确保PostgreSQL已安装pgvector扩展：
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-## 📖 API接口
+## 📝 更新日志
 
-### 统一响应格式
-所有API接口都遵循统一的响应格式：
-
-```json
-{
-  "code": 0,           // 状态码：0=成功，>0=错误
-  "msg": "ok",         // 消息描述
-  "data": {...}        // 响应数据
-}
-```
-
-### 主要接口模块
-
-#### 1. 角色管理 (`/api/v1/characters/`)
-- `POST /` - 创建角色
-- `GET /` - 获取角色列表
-- `GET /{id}` - 获取角色详情
-- `PUT /{id}` - 更新角色
-- `DELETE /{id}` - 删除角色
-- `GET /search` - 搜索角色
-
-#### 2. 标签管理 (`/api/v1/characters/tags/`)
-- `POST /` - 创建标签
-- `GET /` - 获取标签列表
-- `GET /{id}` - 获取标签详情
-- `PUT /{id}` - 更新标签
-- `DELETE /{id}` - 删除标签
-
-#### 3. 用户管理 (`/api/v1/users/`)
-- `GET /me` - 获取当前用户信息
-- `PUT /me` - 更新用户信息
-- `POST /me/password` - 修改密码
-
-#### 4. 认证 (`/api/v1/login/`)
-- `POST /access-token` - 用户登录
-- `POST /test-token` - 验证token
-
-## 🔧 开发指南
-
-### 代码规范
-- 使用类型提示 (Type Hints)
-- 遵循PEP 8代码风格
-- 使用Ruff进行代码检查
-- 使用MyPy进行类型检查
-
-### 数据库操作
-- 使用SQLModel进行ORM操作
-- 所有数据库操作都在`crud/`目录下
-- 使用Alembic进行数据库迁移
-
-### 测试
-- 使用pytest进行单元测试
-- 测试文件位于`tests/`目录
-- 运行测试：`uv run pytest`
-
-### 异常处理
-- 使用全局异常处理器统一处理异常
-- 所有异常都转换为统一的响应格式
-- 详细的错误日志记录
-
-## 🚀 部署
-
-### Docker部署
-```bash
-# 构建镜像
-docker build -t dahuanya-backend .
-
-# 运行容器
-docker run -p 8000:8000 dahuanya-backend
-```
-
-### Docker Compose部署
-```bash
-# 启动所有服务
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f backend
-```
-
-## 📊 监控和日志
-
-### 日志配置
-- 使用Python标准logging模块
-- 支持不同级别的日志输出
-- 集成Sentry进行错误监控
-
-### 性能监控
-- 集成Prometheus指标
-- 支持健康检查端点
-- 数据库连接池监控
+### v1.0.0 (2024-09-22)
+- ✅ 初始版本发布
+- ✅ 支持基本的角色管理功能
+- ✅ 集成阿里云和OpenAI嵌入模型
+- ✅ 实现向量搜索功能
+- ✅ 支持混合搜索模式
+- ✅ 完整的API文档和示例
 
 ## 🤝 贡献指南
 
-### 开发流程
-1. Fork项目
-2. 创建功能分支 (`git checkout -b feat/feature-name`)
-3. 提交更改 (`git commit -m 'feat: add new feature'`)
-4. 推送分支 (`git push origin feat/feature-name`)
-5. 创建Pull Request
+欢迎贡献代码和建议！请查看以下指南：
 
-### 提交规范
-使用约定式提交规范：
-- `feat`: 新功能
-- `fix`: 修复bug
-- `docs`: 文档更新
-- `style`: 代码格式调整
-- `refactor`: 代码重构
-- `test`: 测试相关
-- `chore`: 构建过程或辅助工具变动
+1. Fork 项目
+2. 创建功能分支
+3. 提交更改
+4. 发起 Pull Request
 
-## 📞 支持
+## 📞 支持与反馈
 
-如果您在使用过程中遇到问题，可以通过以下方式获取帮助：
-
-1. 查看本文档
-2. 检查API文档 (http://localhost:8000/docs)
-3. 查看项目Issues
-4. 联系开发团队
+- 📧 邮箱: support@dahuanya.com
+- 🐛 问题反馈: [GitHub Issues](https://github.com/your-repo/issues)
+- 📖 文档更新: 欢迎提交文档改进建议
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证。详情请查看 [LICENSE](../LICENSE) 文件。
+本项目采用 MIT 许可证 - 查看 [LICENSE](../LICENSE) 文件了解详情。
 
 ---
 
-**最后更新**: 2025-01-22  
-**版本**: v1.0.0
+**大话鸭团队** - 让AI角色扮演更加智能和有趣！ 🦆✨
