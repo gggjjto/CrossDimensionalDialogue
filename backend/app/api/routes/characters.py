@@ -47,29 +47,6 @@ def create_character(
     return success_response(data=character_obj, msg="角色创建成功")
 
 
-@router.get("/")
-def read_characters(
-    *,
-    db: Session = Depends(get_db),
-    skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
-    is_active: Optional[bool] = Query(None, description="是否只返回可用角色"),
-    tag_ids: Optional[List[uuid.UUID]] = Query(None, description="标签ID过滤"),
-):
-    """
-    获取角色列表。
-
-    支持分页和过滤。
-    """
-    characters, total = character.get_multi(
-        db, skip=skip, limit=limit, is_active=is_active, tag_ids=tag_ids
-    )
-    return success_response(
-        data={"characters": characters, "total": total, "skip": skip, "limit": limit},
-        msg="获取角色列表成功",
-    )
-
-
 @router.get("/search")
 def search_characters(
     *,
@@ -96,6 +73,29 @@ def search_characters(
     )
     result = character.search(db, search_request=search_request)
     return success_response(data=result, msg="搜索完成")
+
+
+@router.get("/")
+def read_characters(
+    *,
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0, description="跳过的记录数"),
+    limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
+    is_active: Optional[bool] = Query(None, description="是否只返回可用角色"),
+    tag_ids: Optional[List[uuid.UUID]] = Query(None, description="标签ID过滤"),
+):
+    """
+    获取角色列表。
+
+    支持分页和过滤。
+    """
+    characters, total = character.get_multi(
+        db, skip=skip, limit=limit, is_active=is_active, tag_ids=tag_ids
+    )
+    return success_response(
+        data={"characters": characters, "total": total, "skip": skip, "limit": limit},
+        msg="获取角色列表成功",
+    )
 
 
 @router.get("/{character_id}")

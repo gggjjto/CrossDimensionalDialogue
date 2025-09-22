@@ -8,7 +8,7 @@ api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
-api_router.include_router(characters.router)
+api_router.include_router(characters.router, prefix="/characters", tags=["characters"])
 
 
 if settings.ENVIRONMENT == "local":

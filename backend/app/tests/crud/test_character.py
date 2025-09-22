@@ -13,10 +13,19 @@ from app.models.character import (
     CharacterTagCreate,
     CharacterTagUpdate,
 )
+from app.tests.utils.test_data_manager import TestDataManager
 
 
 class TestCharacterCRUD:
     """角色CRUD测试类"""
+
+    @pytest.fixture(autouse=True)
+    def setup_test_data_manager(self, db: Session):
+        """为每个测试方法设置数据管理器"""
+        self.data_manager = TestDataManager(db)
+        yield
+        # 测试结束后清理数据
+        self.data_manager.cleanup()
 
     def test_create_character(self, db: Session) -> None:
         """测试创建角色"""
@@ -29,6 +38,8 @@ class TestCharacterCRUD:
         )
 
         character_obj = character.create(db, obj_in=character_data)
+        self.data_manager.track_character(character_obj)
+        self.data_manager.track_character(character_obj)
 
         assert character_obj.name == character_data.name
         assert character_obj.short_bio == character_data.short_bio
@@ -47,6 +58,8 @@ class TestCharacterCRUD:
             persona_text="测试角色",
         )
         character_obj = character.create(db, obj_in=character_data)
+        self.data_manager.track_character(character_obj)
+        self.data_manager.track_character(character_obj)
 
         # 获取角色
         retrieved_character = character.get(db, id=character_obj.id)
@@ -64,12 +77,15 @@ class TestCharacterCRUD:
 
     def test_get_character_by_name(self, db: Session) -> None:
         """测试根据名称获取角色"""
+        # 使用唯一的名称避免冲突
+        unique_name = f"名称测试角色_{uuid.uuid4().hex[:8]}"
         character_data = CharacterCreate(
-            name="名称测试角色",
+            name=unique_name,
             short_bio="用于测试名称获取",
             persona_text="测试角色",
         )
         character_obj = character.create(db, obj_in=character_data)
+        self.data_manager.track_character(character_obj)
 
         retrieved_character = character.get_by_name(db, name=character_obj.name)
 
@@ -105,6 +121,7 @@ class TestCharacterCRUD:
             persona_text="原始人格",
         )
         character_obj = character.create(db, obj_in=character_data)
+        self.data_manager.track_character(character_obj)
 
         # 更新角色
         update_data = CharacterUpdate(
@@ -128,6 +145,7 @@ class TestCharacterCRUD:
             persona_text="测试角色",
         )
         character_obj = character.create(db, obj_in=character_data)
+        self.data_manager.track_character(character_obj)
 
         # 删除角色
         deleted_character = character.delete(db, id=character_obj.id)
@@ -137,17 +155,21 @@ class TestCharacterCRUD:
 
     def test_search_characters(self, db: Session) -> None:
         """测试搜索角色"""
-        # 创建测试角色
+        # 使用唯一的名称和搜索词避免冲突
+        unique_suffix = uuid.uuid4().hex[:8]
+        unique_name = f"搜索测试角色_{unique_suffix}"
+        
         character_data = CharacterCreate(
-            name="搜索测试角色",
-            short_bio="这是一个用于搜索测试的角色",
-            persona_text="搜索测试人格",
+            name=unique_name,
+            short_bio=f"这是一个用于搜索测试的角色_{unique_suffix}",
+            persona_text=f"搜索测试人格_{unique_suffix}",
         )
-        character.create(db, obj_in=character_data)
+        character_obj = character.create(db, obj_in=character_data)
+        self.data_manager.track_character(character_obj)
 
-        # 搜索角色
+        # 搜索角色 - 使用角色名称中的关键词
         search_request = {
-            "query": "搜索测试",
+            "query": "搜索测试角色",  # 使用角色名称中的关键词
             "search_type": "text",
             "limit": 10,
             "offset": 0,
@@ -158,13 +180,27 @@ class TestCharacterCRUD:
         search_req = CharacterSearchRequest(**search_request)
         result = character.search(db, search_request=search_req)
 
-        assert len(result.results) == 1
-        assert result.results[0].character.name == "搜索测试角色"
-        assert result.total == 1
+        # 检查结果中是否包含我们创建的角色
+        found_character = None
+        for search_result in result.results:
+            if search_result.character.id == character_obj.id:
+                found_character = search_result
+                break
+        
+        assert found_character is not None
+        assert found_character.character.name == unique_name
 
 
 class TestCharacterTagCRUD:
     """角色标签CRUD测试类"""
+
+    @pytest.fixture(autouse=True)
+    def setup_test_data_manager(self, db: Session):
+        """为每个测试方法设置数据管理器"""
+        self.data_manager = TestDataManager(db)
+        yield
+        # 测试结束后清理数据
+        self.data_manager.cleanup()
 
     def test_create_character_tag(self, db: Session) -> None:
         """测试创建标签"""
@@ -175,6 +211,7 @@ class TestCharacterTagCRUD:
         )
 
         tag_obj = character_tag.create(db, obj_in=tag_data)
+        self.data_manager.track_tag(tag_obj)
 
         assert tag_obj.name == tag_data.name
         assert tag_obj.description == tag_data.description
@@ -189,6 +226,7 @@ class TestCharacterTagCRUD:
             description="用于测试获取",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)
+        self.data_manager.track_tag(tag_obj)
 
         # 获取标签
         retrieved_tag = character_tag.get(db, id=tag_obj.id)
@@ -204,6 +242,7 @@ class TestCharacterTagCRUD:
             description="用于测试名称获取",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)
+        self.data_manager.track_tag(tag_obj)
 
         retrieved_tag = character_tag.get_by_name(db, name=tag_obj.name)
 
@@ -237,6 +276,7 @@ class TestCharacterTagCRUD:
             description="原始描述",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)
+        self.data_manager.track_tag(tag_obj)
 
         # 更新标签
         update_data = CharacterTagUpdate(
@@ -257,6 +297,7 @@ class TestCharacterTagCRUD:
             description="用于测试删除",
         )
         tag_obj = character_tag.create(db, obj_in=tag_data)
+        self.data_manager.track_tag(tag_obj)
 
         # 删除标签
         deleted_tag = character_tag.delete(db, id=tag_obj.id)
