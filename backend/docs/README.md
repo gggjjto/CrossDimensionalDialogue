@@ -8,6 +8,10 @@
 - [快速开始指南](quick_start.md) - 5分钟快速体验系统功能
 - [API使用示例](api_examples.md) - 详细的API调用示例和代码
 
+### 📖 API文档
+- [用户管理API](user_api.md) - 用户注册、登录、管理功能
+- [角色管理API](character_management.md) - 角色创建、搜索、向量管理
+
 ### 📖 完整文档
 - [角色管理系统文档](character_management.md) - 完整的功能说明和技术文档
 - [框架架构文档](framework.md) - 整体系统架构和设计理念
