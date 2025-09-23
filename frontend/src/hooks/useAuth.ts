@@ -12,7 +12,7 @@ interface User {
 }
 
 interface LoginCredentials {
-  username: string
+  email: string
   password: string
 }
 
