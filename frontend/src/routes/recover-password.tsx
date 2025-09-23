@@ -4,13 +4,11 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 import { type SubmitHandler, useForm } from "react-hook-form"
 import { FiMail } from "react-icons/fi"
 
-import { type ApiError, LoginService } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { InputGroup } from "@/components/ui/input-group"
-import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { emailPattern, handleError } from "@/utils"
+import { emailPattern } from "@/utils"
 
 interface FormData {
   email: string
@@ -19,7 +17,8 @@ interface FormData {
 export const Route = createFileRoute("/recover-password")({
   component: RecoverPassword,
   beforeLoad: async () => {
-    if (isLoggedIn()) {
+    if (false) {
+      // TODO: 鉴权
       throw redirect({
         to: "/",
       })
@@ -37,9 +36,8 @@ function RecoverPassword() {
   const { showSuccessToast } = useCustomToast()
 
   const recoverPassword = async (data: FormData) => {
-    await LoginService.recoverPassword({
-      email: data.email,
-    })
+    // TODO: 密码找回逻辑对接
+    console.log("找回密码提交数据", data)
   }
 
   const mutation = useMutation({
@@ -48,8 +46,9 @@ function RecoverPassword() {
       showSuccessToast("Password recovery email sent successfully.")
       reset()
     },
-    onError: (err: ApiError) => {
-      handleError(err)
+    onError: (err) => {
+      // TODO: 错误处理
+      // handleError(err)
     },
   })
 

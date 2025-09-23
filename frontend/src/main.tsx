@@ -7,27 +7,17 @@ import {
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
-import { ApiError, OpenAPI } from "./client"
 import { CustomProvider } from "./components/ui/provider"
 import { routeTree } from "./routeTree.gen"
 
-OpenAPI.BASE = import.meta.env.VITE_API_URL
-OpenAPI.TOKEN = async () => {
-  return localStorage.getItem("access_token") || ""
-}
-
-const handleApiError = (error: Error) => {
-  if (error instanceof ApiError && [401, 403].includes(error.status)) {
-    localStorage.removeItem("access_token")
-    window.location.href = "/login"
-  }
-}
 const queryClient = new QueryClient({
+  // TODO: 错误处理
   queryCache: new QueryCache({
-    onError: handleApiError,
+    onError: () => {},
   }),
   mutationCache: new MutationCache({
-    onError: handleApiError,
+    // TODO: 错误处理
+    onError: () => {},
   }),
 })
 
@@ -45,5 +35,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <RouterProvider router={router} />
       </QueryClientProvider>
     </CustomProvider>
-  </StrictMode>,
+  </StrictMode>
 )

@@ -7,7 +7,6 @@ import {
 import { type SubmitHandler, useForm } from "react-hook-form"
 import { FiLock, FiMail } from "react-icons/fi"
 
-import type { Body_login_login_access_token as AccessToken } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { InputGroup } from "@/components/ui/input-group"
@@ -19,6 +18,7 @@ import { emailPattern, passwordRules } from "../utils"
 export const Route = createFileRoute("/login")({
   component: Login,
   beforeLoad: async () => {
+    // 如果用户已经登录，重定向到首页
     if (isLoggedIn()) {
       throw redirect({
         to: "/",
@@ -27,13 +27,19 @@ export const Route = createFileRoute("/login")({
   },
 })
 
+// 登录表单数据类型
+interface LoginFormData {
+  username: string
+  password: string
+}
+
 function Login() {
   const { loginMutation, error, resetError } = useAuth()
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<AccessToken>({
+  } = useForm<LoginFormData>({
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues: {
@@ -42,7 +48,7 @@ function Login() {
     },
   })
 
-  const onSubmit: SubmitHandler<AccessToken> = async (data) => {
+  const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
     if (isSubmitting) return
 
     resetError()
@@ -50,7 +56,7 @@ function Login() {
     try {
       await loginMutation.mutateAsync(data)
     } catch {
-      // error is handled by useAuth hook
+      // 错误由 useAuth hook 处理
     }
   }
 
@@ -74,8 +80,8 @@ function Login() {
         mb={4}
       />
       <Field
-        invalid={!!errors.username}
-        errorText={errors.username?.message || !!error}
+        invalid={!!errors.username || !!error}
+        errorText={errors.username?.message || (error ? "登录失败" : "")}
       >
         <InputGroup w="100%" startElement={<FiMail />}>
           <Input
@@ -98,7 +104,12 @@ function Login() {
       <RouterLink to="/recover-password" className="main-link">
         Forgot Password?
       </RouterLink>
-      <Button variant="solid" type="submit" loading={isSubmitting} size="md">
+      <Button
+        variant="solid"
+        type="submit"
+        loading={loginMutation.isPending}
+        size="md"
+      >
         Log In
       </Button>
       <Text>
