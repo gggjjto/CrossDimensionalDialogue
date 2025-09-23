@@ -54,6 +54,104 @@ class ContextType(str, Enum):
     EMOTION = "emotion"
 
 
+class LLMProvider(str, Enum):
+    """LLM提供商枚举"""
+
+    OPENAI = "openai"
+    DEEPSEEK = "deepseek"
+    QWEN = "qwen"
+    LOCAL = "local"
+
+
+class MultiCharacterMode(str, Enum):
+    """多角色模式枚举"""
+
+    SINGLE = "single"  # 单角色模式
+    MULTIPLE = "multiple"  # 多角色模式
+    SWITCHING = "switching"  # 角色切换模式
+
+
+class CharacterResponseStrategy(str, Enum):
+    """角色回复策略枚举"""
+
+    ROUND_ROBIN = "round_robin"  # 轮流回复
+    PRIORITY_BASED = "priority_based"  # 基于优先级
+    CONTEXT_AWARE = "context_aware"  # 基于上下文
+    USER_CHOICE = "user_choice"  # 用户选择
+
+
+class ConversationSettings(SQLModel):
+    """会话设置模型"""
+
+    # LLM配置
+    llm_provider: LLMProvider = Field(
+        default=LLMProvider.OPENAI, description="LLM提供商"
+    )
+    llm_model: str = Field(default="gpt-3.5-turbo", description="LLM模型")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
+    max_tokens: int = Field(default=1000, ge=1, le=4000, description="最大token数")
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="top_p参数")
+
+    # 多角色配置
+    multi_character_mode: MultiCharacterMode = Field(
+        default=MultiCharacterMode.SINGLE, description="多角色模式"
+    )
+    character_response_strategy: CharacterResponseStrategy = Field(
+        default=CharacterResponseStrategy.CONTEXT_AWARE, description="角色回复策略"
+    )
+    enable_character_switching: bool = Field(
+        default=False, description="是否启用角色切换"
+    )
+    max_characters: int = Field(default=3, ge=1, le=10, description="最大角色数量")
+
+    # 上下文配置
+    context_window_size: int = Field(
+        default=10, ge=1, le=50, description="上下文窗口大小"
+    )
+    enable_context_summary: bool = Field(
+        default=False, description="是否启用上下文摘要"
+    )
+    context_summary_threshold: int = Field(
+        default=15, ge=5, le=50, description="上下文摘要阈值"
+    )
+
+    # RAG配置
+    enable_rag: bool = Field(default=False, description="是否启用RAG")
+    rag_threshold: float = Field(
+        default=0.7, ge=0.0, le=1.0, description="RAG相关性阈值"
+    )
+    max_rag_results: int = Field(default=3, ge=1, le=10, description="最大RAG结果数")
+
+    # 语音配置
+    enable_tts: bool = Field(default=False, description="是否启用TTS")
+    tts_voice: Optional[str] = Field(default=None, description="TTS音色")
+
+    # 其他配置
+    auto_save: bool = Field(default=True, description="是否自动保存")
+    enable_typing_indicator: bool = Field(default=True, description="是否显示输入状态")
+
+
+# 多角色会话模型
+class MultiCharacterConversation(SQLModel, table=True):
+    """多角色会话模型"""
+
+    __tablename__ = "multi_character_conversations"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    conversation_id: uuid.UUID = Field(
+        foreign_key="conversations.id", description="关联的会话ID"
+    )
+    character_id: uuid.UUID = Field(foreign_key="characters.id", description="角色ID")
+    priority: int = Field(default=1, ge=1, le=10, description="角色优先级")
+    is_active: bool = Field(default=True, description="是否激活")
+    last_response_at: Optional[datetime] = Field(
+        default=None, description="最后回复时间"
+    )
+    response_count: int = Field(default=0, description="回复次数")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # 会话相关模型
 class ConversationBase(SQLModel):
     """会话基础模型"""

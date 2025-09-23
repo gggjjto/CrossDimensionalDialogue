@@ -98,13 +98,26 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr = "test@example.com"
     FIRST_SUPERUSER_PASSWORD: str = ""
 
-    # 嵌入模型配置
-    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "aliyun"
+    # LLM模型配置
+    LLM_PROVIDER: Literal["openai", "deepseek", "qwen", "local"] = "openai"
 
     # OpenAI 配置
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-3.5-turbo"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    # DeepSeek 配置
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+
+    # 阿里千问配置
+    QWEN_API_KEY: str = ""
+    QWEN_MODEL: str = "qwen-turbo"
+    QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+    # 嵌入模型配置
+    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "aliyun"
 
     # 阿里云配置
     ALIYUN_API_KEY: str = ""

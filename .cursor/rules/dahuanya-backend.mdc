@@ -3,6 +3,7 @@ description:
 globs:
 alwaysApply: true
 ---
+大黄鸭项目
 hahuanya 项目开发指南
 
 核心原则：
@@ -181,7 +182,7 @@ app/
 ~~~~
 
 使用技术栈：
-- 后端：FastAPI + WebSocket + REST + SQLModel
+- 后端：FastAPI + WebSocket + REST + SQLModel + Python 3.12.10
 - 数据库：PostgreSQL + pgvector
 - 缓存：Redis
 - 存储：MinIO/S3

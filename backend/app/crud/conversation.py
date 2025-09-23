@@ -405,6 +405,20 @@ class MessageCRUD:
         messages = db.exec(statement).all()
         return messages, total
 
+    def get_recent_messages(
+        self, db: Session, *, conversation_id: uuid.UUID, limit: int = 10
+    ) -> List[Message]:
+        """获取会话的最近消息"""
+        statement = (
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(desc(Message.created_at))
+            .limit(limit)
+        )
+        messages = db.exec(statement).all()
+        # 返回按时间正序排列的消息（最老的在前）
+        return list(reversed(messages))
+
     def update(self, db: Session, *, db_obj: Message, obj_in: MessageUpdate) -> Message:
         """更新消息"""
         update_data = obj_in.dict(exclude_unset=True)
