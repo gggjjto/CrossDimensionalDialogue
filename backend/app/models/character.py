@@ -1,9 +1,12 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlmodel import Relationship, SQLModel, Field, JSON
 from pgvector.sqlalchemy import Vector
+
+if TYPE_CHECKING:
+    from app.models.conversation import Conversation
 
 
 # 标签表
@@ -100,6 +103,9 @@ class Character(CharacterBase, table=True):
         back_populates="character", cascade_delete=True
     )
     embeddings: List["CharacterEmbedding"] = Relationship(
+        back_populates="character", cascade_delete=True
+    )
+    conversations: List["Conversation"] = Relationship(
         back_populates="character", cascade_delete=True
     )
 

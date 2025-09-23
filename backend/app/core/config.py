@@ -17,6 +17,8 @@ from typing_extensions import Self
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
+
+
 def parse_cors(v: Any) -> list[str] | str:
     if isinstance(v, str) and not v.startswith("["):
         return [i.strip() for i in v.split(",")]
@@ -111,6 +113,27 @@ class Settings(BaseSettings):
     # 本地模型配置（可选）
     LOCAL_EMBEDDING_MODEL_PATH: str = ""
     LOCAL_EMBEDDING_DEVICE: str = "cpu"
+
+    # 音频存储配置
+    AUDIO_STORAGE_PATH: str = "data/audio_files"
+    MAX_AUDIO_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
+
+    # 语音转文本(STT)配置
+    STT_ENGINE: Literal["openai", "azure", "google", "whisper"] = "whisper"
+    WHISPER_MODEL_SIZE: str = "base"  # tiny, base, small, medium, large
+
+    # 文本转语音(TTS)配置
+    TTS_ENGINE: Literal["openai", "azure", "google", "elevenlabs", "local"] = "openai"
+
+    # Azure Speech Services配置
+    AZURE_SPEECH_KEY: str = ""
+    AZURE_SPEECH_REGION: str = ""
+
+    # Google Cloud Speech配置
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""
+
+    # ElevenLabs配置
+    ELEVENLABS_API_KEY: str = ""
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

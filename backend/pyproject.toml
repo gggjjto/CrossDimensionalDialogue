@@ -24,6 +24,8 @@ dependencies = [
     "pgvector>=0.4.1",
     "openai>=1.108.1",
     "dashscope>=1.24.6",
+    "librosa>=0.11.0",
+    "soundfile>=0.13.1",
 ]
 
 [tool.uv]
@@ -34,6 +36,7 @@ dev-dependencies = [
     "pre-commit<4.0.0,>=3.6.2",
     "types-passlib<2.0.0.0,>=1.7.7.20240106",
     "coverage<8.0.0,>=7.4.3",
+    "pytest-asyncio>=0.23.8",
 ]
 
 [build-system]
