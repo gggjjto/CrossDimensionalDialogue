@@ -26,6 +26,7 @@ dependencies = [
     "dashscope>=1.24.6",
     "librosa>=0.11.0",
     "soundfile>=0.13.1",
+    "qiniu>=7.12.1",
 ]
 
 [tool.uv]

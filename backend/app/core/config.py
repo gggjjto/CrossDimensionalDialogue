@@ -118,6 +118,14 @@ class Settings(BaseSettings):
     AUDIO_STORAGE_PATH: str = "data/audio_files"
     MAX_AUDIO_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
 
+    # 七牛云存储配置
+    QINIU_ACCESS_KEY: str = ""
+    QINIU_SECRET_KEY: str = ""
+    QINIU_BUCKET_NAME: str = ""
+    QINIU_DOMAIN: str = ""  # 七牛云存储空间绑定的域名
+    QINIU_USE_HTTPS: bool = True
+    QINIU_CDN_DOMAIN: str = ""  # CDN加速域名（可选）
+
     # 语音转文本(STT)配置
     STT_ENGINE: Literal["openai", "azure", "google", "whisper"] = "whisper"
     WHISPER_MODEL_SIZE: str = "base"  # tiny, base, small, medium, large
