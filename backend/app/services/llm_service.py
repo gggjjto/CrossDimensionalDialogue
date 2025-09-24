@@ -111,15 +111,6 @@ class LLMService:
                 usage={},
             )
 
-    def _get_config_key_by_provider(
-        self, provider: str, model: Optional[str] = None
-    ) -> str:
-        provider = provider.lower()
-        if provider == "qwen":
-            return "qwen_chat"
-        else:
-            raise ValueError(f"不支持的LLM提供商: {provider}")
-
     def _build_messages(
         self,
         character: Character,

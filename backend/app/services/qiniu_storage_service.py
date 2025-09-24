@@ -366,49 +366,6 @@ class QiniuStorageService:
         }
         return file_path.suffix.lower() in doc_extensions
 
-    def get_storage_stats(self, user_id: Optional[int] = None) -> Dict[str, Any]:
-        """
-        获取存储统计信息
-
-        Args:
-            user_id: 用户ID，如果提供则只统计该用户的文件
-
-        Returns:
-            Dict: 存储统计信息
-        """
-        if user_id:
-            # 统计特定用户的文件
-            audio_files = self.client.list_files(prefix=f"audio/{user_id}")
-            image_files = self.client.list_files(prefix=f"images/{user_id}")
-            doc_files = self.client.list_files(prefix=f"documents/{user_id}")
-
-            total_files = (
-                len(audio_files.get("items", []))
-                + len(image_files.get("items", []))
-                + len(doc_files.get("items", []))
-            )
-
-            total_size = sum(
-                item.get("fsize", 0)
-                for item in audio_files.get("items", [])
-                + image_files.get("items", [])
-                + doc_files.get("items", [])
-            )
-        else:
-            # 统计所有文件
-            all_files = self.client.list_files()
-            total_files = len(all_files.get("items", []))
-            total_size = sum(
-                item.get("fsize", 0) for item in all_files.get("items", [])
-            )
-
-        return {
-            "total_files": total_files,
-            "total_size": total_size,
-            "total_size_mb": round(total_size / (1024 * 1024), 2),
-            "user_id": user_id,
-        }
-
 
 # 全局服务实例
 qiniu_storage_service = QiniuStorageService()
