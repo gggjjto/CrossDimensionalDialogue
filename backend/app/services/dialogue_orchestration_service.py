@@ -17,14 +17,16 @@ from app.models.conversation import (
     SenderType,
     ContentType,
     ConversationSettings,
-    MultiCharacterMode,
 )
 from app.models.character import Character
 from app.crud.conversation import conversation, message as message_crud
-from app.services.llm_service import llm_service, LLMResponse, LLMRequest
-from app.services.tts_service import tts_service
-from app.services.multi_character_service import multi_character_service
-from app.services.context_management_service import context_management_service
+from app.services.llm_service import llm_service, LLMResponse
+from app.services.tts_service import tts_service, TTSRequest, TTSResponse
+from app.services.stt_service import stt_service, STTRequest, STTResponse
+from app.services.voice_catalog_service import list_voices
+from app.services.qiniu_storage_service import QiniuStorageService
+import tempfile
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +37,7 @@ class DialogueOrchestrationService:
     def __init__(self):
         self.llm_service = llm_service
         self.tts_service = tts_service
-        self.multi_character_service = multi_character_service
-        self.context_management_service = context_management_service
+        self.storage_service = QiniuStorageService()
 
     async def process_user_message(
         self,
@@ -67,92 +68,38 @@ class DialogueOrchestrationService:
             if not db_conversation:
                 raise ValueError("会话不存在或无权限访问")
 
-            # 使用默认设置
-            if not settings:
-                settings = ConversationSettings()
-
             # 保存用户消息
             user_message_obj = await self._save_user_message(
                 db, conversation_id, user_message, user_id
             )
 
-            # 根据多角色模式选择角色
-            if settings.multi_character_mode == MultiCharacterMode.SINGLE:
-                # 单角色模式
-                character = db_conversation.character
-                if not character:
-                    raise ValueError("角色信息不存在")
+            # 单角色模式 - 获取会话关联的角色
+            character = db_conversation.character
+            if not character:
+                raise ValueError("角色信息不存在")
 
-                character_response = await self._generate_character_response(
-                    db, character, db_conversation, user_message, settings
-                )
+            # 生成角色回复
+            character_response = await self._generate_character_response(
+                db, character, db_conversation, user_message, settings
+            )
 
-                # 保存角色回复
-                character_message_obj = await self._save_character_message(
-                    db, conversation_id, character_response.content, character.id
-                )
-
-            elif settings.multi_character_mode == MultiCharacterMode.MULTIPLE:
-                # 多角色模式
-                character_responses = await self._generate_multi_character_responses(
-                    db, conversation_id, user_message, settings
-                )
-
-                # 保存多个角色回复
-                character_message_objs = []
-                for char_response in character_responses:
-                    char_msg_obj = await self._save_character_message(
-                        db,
-                        conversation_id,
-                        char_response["content"],
-                        char_response["character_id"],
-                    )
-                    character_message_objs.append(char_msg_obj)
-
-                # 为了兼容性，使用第一个回复作为主要回复
-                character_response = LLMResponse(
-                    content=character_responses[0]["content"],
-                    model=character_responses[0]["model"],
-                    usage=character_responses[0]["usage"],
-                )
-                character_message_obj = character_message_objs[0]
-
-            else:  # SWITCHING mode
-                # 角色切换模式
-                selected_character = (
-                    self.multi_character_service.select_responding_character(
-                        db, conversation_id, user_message, settings
-                    )
-                )
-
-                if not selected_character:
-                    # 如果没有选中角色，使用默认角色
-                    character = db_conversation.character
-                else:
-                    character = selected_character
-
-                character_response = await self._generate_character_response(
-                    db, character, db_conversation, user_message, settings
-                )
-
-                # 保存角色回复
-                character_message_obj = await self._save_character_message(
-                    db, conversation_id, character_response.content, character.id
-                )
-
-                # 更新角色回复统计
-                self.multi_character_service.update_character_response_stats(
-                    db, conversation_id, character.id
-                )
+            # 保存角色回复
+            character_message_obj = await self._save_character_message(
+                db, conversation_id, character_response.content, character.id
+            )
 
             # 更新会话统计
             await self._update_conversation_stats(db, db_conversation)
 
             # 生成语音回复（如果启用）
             audio_url = None
-            if settings.enable_tts and character_response.content:
+            if settings and settings.enable_tts and character_response.content:
                 audio_url = await self._generate_voice_response(
-                    character_response.content, character.name
+                    character_response.content,
+                    character.name,
+                    db,
+                    user_id,
+                    conversation_id,
                 )
 
             return {
@@ -261,18 +208,322 @@ class DialogueOrchestrationService:
         logger.info(f"会话统计已更新: {conversation.id}")
 
     async def _generate_voice_response(
-        self, text: str, character_name: str
+        self,
+        text: str,
+        character: Character,
+        db: Session,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
     ) -> Optional[str]:
         """生成语音回复"""
         try:
-            # 这里可以调用TTS服务
-            # 暂时返回None，后续可以集成TTS服务
-            logger.info(f"为角色 {character_name} 生成语音回复")
-            return None
+            if not text or not text.strip():
+                logger.warning("文本为空，跳过语音生成")
+                return None
+
+            # 获取可用的音色列表
+            available_voices = list_voices(db, provider="qwen3-tts")
+            if not available_voices:
+                logger.warning("没有可用的音色，使用默认音色")
+                voice = "Cherry"  # 默认音色
+            else:
+                # 使用角色的默认音色
+                voice = self._get_character_default_voice(character, available_voices)
+
+            # 创建TTS请求
+            tts_request = TTSRequest(
+                text=text,
+                voice=voice,
+                audio_format="wav",
+                sample_rate=24000,
+            )
+
+            # 调用TTS服务生成语音
+            tts_response = await tts_service.synthesize(tts_request)
+
+            if tts_response.audio_bytes:
+                # 保存音频文件到云存储
+                audio_url = await self._save_audio_to_storage(
+                    tts_response.audio_bytes, user_id, conversation_id, character.name
+                )
+                logger.info(
+                    f"为角色 {character.name} 生成语音回复成功，使用音色: {voice}"
+                )
+                return audio_url
+            else:
+                logger.error("TTS服务返回空音频数据")
+                return None
 
         except Exception as e:
             logger.error(f"生成语音回复失败: {str(e)}")
             return None
+
+    async def _save_audio_to_storage(
+        self,
+        audio_bytes: bytes,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        character_name: str,
+    ) -> str:
+        """保存音频文件到云存储"""
+        try:
+            # 创建临时文件
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+                temp_file.write(audio_bytes)
+                temp_file_path = temp_file.name
+
+            try:
+                # 上传到云存储
+                upload_result = self.storage_service.upload_audio_file(
+                    file_path=temp_file_path,
+                    user_id=str(user_id),
+                    conversation_id=str(conversation_id),
+                    file_type="tts_audio",
+                )
+
+                # 返回云存储URL
+                return upload_result.get("url", "")
+
+            finally:
+                # 清理临时文件
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+
+        except Exception as e:
+            logger.error(f"保存音频文件到云存储失败: {str(e)}")
+            # 如果云存储失败，返回base64编码的音频数据作为备选
+            return f"data:audio/wav;base64,{self._encode_audio_to_base64(audio_bytes)}"
+
+    def _get_default_voice(self, available_voices: List) -> str:
+        """获取默认音色"""
+        # 优先使用Cherry音色
+        for voice_obj in available_voices:
+            if voice_obj.voice == "Cherry" and voice_obj.is_active:
+                return voice_obj.voice
+
+        # 如果Cherry不可用，使用第一个可用音色
+        if available_voices:
+            return available_voices[0].voice
+
+        return "Cherry"  # 最终默认音色
+
+    def _get_character_default_voice(
+        self, character: Character, available_voices: List
+    ) -> str:
+        """获取角色的默认音色"""
+        # 优先使用角色设置的默认音色
+        if character.default_voice:
+            for voice_obj in available_voices:
+                if voice_obj.voice == character.default_voice and voice_obj.is_active:
+                    return voice_obj.voice
+
+        # 如果角色没有设置默认音色或音色不可用，使用全局默认音色
+        return self._get_default_voice(available_voices)
+
+    def _encode_audio_to_base64(self, audio_bytes: bytes) -> str:
+        """将音频字节编码为base64字符串"""
+        import base64
+
+        return base64.b64encode(audio_bytes).decode("utf-8")
+
+    async def process_voice_message(
+        self,
+        db: Session,
+        conversation_id: uuid.UUID,
+        audio_url: str,
+        user_id: uuid.UUID,
+        settings: Optional[ConversationSettings] = None,
+        voice_preference: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        处理用户语音消息并生成角色语音回复
+
+        Args:
+            db: 数据库会话
+            conversation_id: 会话ID
+            audio_url: 音频文件的公网URL
+            user_id: 用户ID
+            settings: 会话设置
+            voice_preference: 偏好的音色
+
+        Returns:
+            Dict[str, Any]: 处理结果，包含文本回复、语音回复和元数据
+        """
+        try:
+            # 1. 获取会话信息
+            db_conversation = conversation.get_by_user_and_id(
+                db, id=conversation_id, user_id=user_id
+            )
+            if not db_conversation:
+                raise ValueError("会话不存在或无权限访问")
+
+            # 2. 语音转文本 (STT)
+            stt_text = await self._speech_to_text(audio_url)
+            if not stt_text:
+                raise ValueError("语音识别失败，无法获取文本内容")
+
+            # 3. 保存用户语音消息（以文本形式）
+            user_message_obj = await self._save_user_message(
+                db, conversation_id, stt_text, user_id
+            )
+
+            # 4. 获取角色信息
+            character = db_conversation.character
+            if not character:
+                raise ValueError("角色信息不存在")
+
+            # 5. 生成角色文本回复 (LLM)
+            character_response = await self._generate_character_response(
+                db, character, db_conversation, stt_text, settings
+            )
+
+            # 6. 保存角色文本回复
+            character_message_obj = await self._save_character_message(
+                db, conversation_id, character_response.content, character.id
+            )
+
+            # 7. 更新会话统计
+            await self._update_conversation_stats(db, db_conversation)
+
+            # 8. 生成语音回复（如果启用）
+            audio_response_url = None
+            voice_used = None
+            if settings and settings.enable_tts and character_response.content:
+                audio_response_url, voice_used = (
+                    await self._generate_voice_response_with_preference(
+                        character_response.content,
+                        character,
+                        db,
+                        user_id,
+                        conversation_id,
+                        voice_preference,
+                    )
+                )
+
+            return {
+                "success": True,
+                "user_message": user_message_obj,
+                "character_message": character_message_obj,
+                "character_response": character_response,
+                "stt_text": stt_text,
+                "text_response": character_response.content,
+                "audio_response_url": audio_response_url,
+                "voice_used": voice_used,
+                "usage": character_response.usage,
+            }
+
+        except Exception as e:
+            logger.error(f"处理语音消息失败: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "user_message": None,
+                "character_message": None,
+                "stt_text": None,
+                "text_response": None,
+                "audio_response_url": None,
+                "voice_used": None,
+            }
+
+    async def _speech_to_text(self, audio_url: str) -> Optional[str]:
+        """语音转文本"""
+        try:
+            if not audio_url or not audio_url.startswith("http"):
+                logger.error("音频URL无效")
+                return None
+
+            # 创建STT请求
+            stt_request = STTRequest(
+                audio_url=audio_url,
+                model="qwen3-asr-flash",
+                response_format="json",
+            )
+
+            # 调用STT服务
+            stt_response = await stt_service.transcribe(stt_request)
+
+            if stt_response.text and stt_response.text.strip():
+                logger.info(f"语音识别成功: {stt_response.text[:50]}...")
+                return stt_response.text.strip()
+            else:
+                logger.error("STT服务返回空文本")
+                return None
+
+        except Exception as e:
+            logger.error(f"语音转文本失败: {str(e)}")
+            return None
+
+    async def _generate_voice_response_with_preference(
+        self,
+        text: str,
+        character: Character,
+        db: Session,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        voice_preference: Optional[str] = None,
+    ) -> tuple[Optional[str], Optional[str]]:
+        """根据偏好生成语音回复"""
+        try:
+            if not text or not text.strip():
+                logger.warning("文本为空，跳过语音生成")
+                return None, None
+
+            # 获取可用的音色列表
+            available_voices = list_voices(db, provider="qwen3-tts")
+            if not available_voices:
+                logger.warning("没有可用的音色，使用默认音色")
+                voice = "Cherry"  # 默认音色
+            else:
+                # 优先使用用户偏好的音色
+                if voice_preference:
+                    voice = self._select_preferred_voice(
+                        voice_preference, available_voices
+                    )
+                else:
+                    # 使用角色的默认音色
+                    voice = self._get_character_default_voice(
+                        character, available_voices
+                    )
+
+            # 创建TTS请求
+            tts_request = TTSRequest(
+                text=text,
+                voice=voice,
+                audio_format="wav",
+                sample_rate=24000,
+            )
+
+            # 调用TTS服务生成语音
+            tts_response = await tts_service.synthesize(tts_request)
+
+            if tts_response.audio_bytes:
+                # 保存音频文件到云存储
+                audio_url = await self._save_audio_to_storage(
+                    tts_response.audio_bytes, user_id, conversation_id, character.name
+                )
+                logger.info(
+                    f"为角色 {character.name} 生成语音回复成功，使用音色: {voice}"
+                )
+                return audio_url, voice
+            else:
+                logger.error("TTS服务返回空音频数据")
+                return None, None
+
+        except Exception as e:
+            logger.error(f"生成语音回复失败: {str(e)}")
+            return None, None
+
+    def _select_preferred_voice(
+        self, voice_preference: str, available_voices: List
+    ) -> str:
+        """选择用户偏好的音色"""
+        for voice_obj in available_voices:
+            if voice_obj.voice == voice_preference and voice_obj.is_active:
+                return voice_obj.voice
+
+        # 如果偏好音色不可用，使用默认音色Cherry
+        return self._get_default_voice(available_voices)
 
     async def get_conversation_context(
         self,
@@ -320,96 +571,6 @@ class DialogueOrchestrationService:
         except Exception as e:
             logger.error(f"获取会话上下文失败: {str(e)}")
             raise
-
-    async def _generate_multi_character_responses(
-        self,
-        db: Session,
-        conversation_id: uuid.UUID,
-        user_message: str,
-        settings: ConversationSettings,
-    ) -> List[Dict[str, Any]]:
-        """
-        生成多角色回复
-
-        Args:
-            db: 数据库会话
-            conversation_id: 会话ID
-            user_message: 用户消息
-            settings: 会话设置
-
-        Returns:
-            List[Dict[str, Any]]: 角色回复列表
-        """
-        # 获取会话中的所有角色
-        characters = self.multi_character_service.get_conversation_characters(
-            db, conversation_id, active_only=True
-        )
-
-        if not characters:
-            raise ValueError("没有找到活跃的角色")
-
-        responses = []
-
-        # 为每个角色生成回复
-        for char_conv in characters[: settings.max_characters]:
-            try:
-                character = db.get(Character, char_conv.character_id)
-                if not character:
-                    continue
-
-                # 构建上下文
-                context = (
-                    await self.context_management_service.build_conversation_context(
-                        db, conversation_id, character.id, user_message, settings
-                    )
-                )
-
-                # 构建增强的提示词
-                enhanced_prompt = self.context_management_service.build_enhanced_prompt(
-                    character, context
-                )
-
-                # 构建消息列表
-                messages = [{"role": "system", "content": enhanced_prompt}]
-
-                # 添加历史消息
-                for msg in context["messages"]:
-                    role = "user" if msg.sender_type == SenderType.USER else "assistant"
-                    messages.append({"role": role, "content": msg.content})
-
-                # 添加当前用户消息
-                messages.append({"role": "user", "content": user_message})
-
-                # 调用LLM生成回复
-                if settings.llm_provider and settings.llm_provider != "openai":
-                    response = await self.llm_service.generate_response_with_provider(
-                        messages=messages,
-                        provider=settings.llm_provider.value,
-                        model=settings.llm_model,
-                        temperature=settings.temperature,
-                        max_tokens=settings.max_tokens,
-                        top_p=settings.top_p,
-                    )
-                else:
-                    response = await self.llm_service.generate_response(
-                        LLMRequest(messages=messages)
-                    )
-
-                responses.append(
-                    {
-                        "character_id": character.id,
-                        "character_name": character.name,
-                        "content": response.content,
-                        "model": response.model,
-                        "usage": response.usage,
-                    }
-                )
-
-            except Exception as e:
-                logger.error(f"为角色 {char_conv.character_id} 生成回复失败: {str(e)}")
-                continue
-
-        return responses
 
 
 # 全局对话编排服务实例
