@@ -57,7 +57,6 @@ class ContextType(str, Enum):
 class LLMProvider(str, Enum):
     """LLM提供商枚举"""
 
-    OPENAI = "openai"
     DEEPSEEK = "deepseek"
     QWEN = "qwen"
     LOCAL = "local"
@@ -85,7 +84,7 @@ class ConversationSettings(SQLModel):
 
     # LLM配置
     llm_provider: LLMProvider = Field(
-        default=LLMProvider.OPENAI, description="LLM提供商"
+        default=LLMProvider.QWEN, description="LLM提供商"
     )
     llm_model: str = Field(default="gpt-3.5-turbo", description="LLM模型")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
