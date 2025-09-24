@@ -202,31 +202,15 @@ class DialogueOrchestrationService:
     ) -> LLMResponse:
         """生成角色回复"""
         try:
-            # 构建消息列表
-            messages = self.llm_service._build_messages(
-                character, conversation, user_message, db
+            # 生成回复
+            response = await self.llm_service.generate_character_response(
+                character=character,
+                conversation=conversation,
+                user_message=user_message,
+                session=db,
+                temperature=settings.temperature,
+                max_tokens=settings.max_tokens,
             )
-
-            # 使用指定的提供商生成回复
-            if settings.llm_provider and settings.llm_provider != "openai":
-                response = await self.llm_service.generate_response_with_provider(
-                    messages=messages,
-                    provider=settings.llm_provider.value,
-                    model=settings.llm_model,
-                    temperature=settings.temperature,
-                    max_tokens=settings.max_tokens,
-                    top_p=settings.top_p,
-                )
-            else:
-                # 使用默认方法
-                response = await self.llm_service.generate_character_response(
-                    character=character,
-                    conversation=conversation,
-                    user_message=user_message,
-                    session=db,
-                    temperature=settings.temperature,
-                    max_tokens=settings.max_tokens,
-                )
 
             logger.info(
                 f"角色回复生成成功: {character.name} (使用{settings.llm_provider})"
