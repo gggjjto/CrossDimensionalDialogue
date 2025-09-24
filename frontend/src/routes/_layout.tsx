@@ -18,8 +18,8 @@ export const Route = createFileRoute("/_layout")({
 function Layout() {
   return (
     <Flex direction="column" h="100vh">
-      <Flex flex="1" overflow="hidden">
-        <Flex flex="1" direction="column" p={4} overflowY="auto">
+      <Flex flex="1" overflow="hidden" pt={4}>
+        <Flex flex="1" direction="column">
           <Outlet />
         </Flex>
       </Flex>

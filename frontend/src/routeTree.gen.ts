@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CreateAgentRouteImport } from './routes/create-agent'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 
@@ -36,6 +37,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreateAgentRoute = CreateAgentRouteImport.update({
+  id: '/create-agent',
+  path: '/create-agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
@@ -47,6 +53,7 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/create-agent': typeof CreateAgentRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
 }
 export interface FileRoutesByTo {
+  '/create-agent': typeof CreateAgentRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -63,6 +71,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
+  '/create-agent': typeof CreateAgentRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -72,16 +81,24 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/create-agent'
     | '/login'
     | '/recover-password'
     | '/reset-password'
     | '/signup'
     | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/recover-password' | '/reset-password' | '/signup' | '/'
+  to:
+    | '/create-agent'
+    | '/login'
+    | '/recover-password'
+    | '/reset-password'
+    | '/signup'
+    | '/'
   id:
     | '__root__'
     | '/_layout'
+    | '/create-agent'
     | '/login'
     | '/recover-password'
     | '/reset-password'
@@ -91,6 +108,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
+  CreateAgentRoute: typeof CreateAgentRoute
   LoginRoute: typeof LoginRoute
   RecoverPasswordRoute: typeof RecoverPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -127,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/create-agent': {
+      id: '/create-agent'
+      path: '/create-agent'
+      fullPath: '/create-agent'
+      preLoaderRoute: typeof CreateAgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_layout': {
       id: '/_layout'
       path: ''
@@ -157,6 +182,7 @@ const LayoutRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
+  CreateAgentRoute: CreateAgentRoute,
   LoginRoute: LoginRoute,
   RecoverPasswordRoute: RecoverPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,

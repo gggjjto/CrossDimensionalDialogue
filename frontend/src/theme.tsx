@@ -54,11 +54,26 @@ export const system = createSystem(defaultConfig, {
           default: { value: "{colors.zinc.800}" },
           emphasis: { value: "{colors.zinc.900}" },
           foreground: { value: "#ffffff" },
+          primary: { value: "{colors.zinc.800}" },
+          secondary: { value: "{colors.zinc.700}" },
+          tertiary: { value: "{colors.zinc.600}" },
+          quaternary: { value: "{colors.zinc.500}" },
+          quinary: { value: "{colors.zinc.400}" },
+          senary: { value: "{colors.zinc.300}" },
+          septenary: { value: "{colors.zinc.200}" },
+          octonary: { value: "{colors.zinc.100}" },
+          nonary: { value: "{colors.zinc.50}" },
         },
         bg: {
           default: { value: { base: "#ffffff", _dark: "{colors.zinc.950}" } },
           muted: {
             value: { base: "{colors.zinc.50}", _dark: "{colors.zinc.900}" },
+          },
+          hover: {
+            value: { base: "{colors.zinc.100}", _dark: "{colors.zinc.800}" },
+          },
+          active: {
+            value: { base: "{colors.zinc.200}", _dark: "{colors.zinc.700}" },
           },
         },
         surface: {
@@ -76,6 +91,9 @@ export const system = createSystem(defaultConfig, {
         border: {
           default: {
             value: { base: "{colors.zinc.200}", _dark: "{colors.zinc.800}" },
+          },
+          muted: {
+            value: { base: "{colors.zinc.300}", _dark: "{colors.zinc.700}" },
           },
         },
         // 状态语义色

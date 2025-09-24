@@ -1,5 +1,6 @@
 import type { RequestKeyParts } from "./types"
 
+// 稳定字符串化
 function stableStringify(value: unknown): string {
   const seen = new WeakSet<object>()
 
@@ -32,6 +33,7 @@ function stableStringify(value: unknown): string {
   return JSON.stringify(helper(value))
 }
 
+// 构建请求键
 export function buildRequestKey(parts: RequestKeyParts): string {
   const method = (parts.method || "GET").toString().toUpperCase()
   const url = parts.url || ""

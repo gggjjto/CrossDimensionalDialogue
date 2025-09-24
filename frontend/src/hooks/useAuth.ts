@@ -16,6 +16,12 @@ interface LoginCredentials {
   password: string
 }
 
+interface RegisterCredentials {
+  email: string
+  password: string
+  full_name: string
+}
+
 interface AuthResponse {
   access_token: string
   token_type: string
@@ -26,6 +32,16 @@ const authAPI = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     // TODO: 替换为实际的登录API调用
     console.log("Login attempt:", credentials)
+    return {
+      access_token: "fake-token",
+      token_type: "bearer",
+    }
+  },
+
+  register: async (payload: RegisterCredentials): Promise<AuthResponse> => {
+    // TODO: 替换为实际的注册API调用
+    console.log("Register attempt:", payload)
+    // 模拟注册成功后直接返回token（或改为跳转到登录页）
     return {
       access_token: "fake-token",
       token_type: "bearer",
@@ -93,6 +109,29 @@ export default function useAuth() {
     },
   })
 
+  // 注册mutation
+  const registerMutation = useMutation({
+    mutationFn: authAPI.register,
+    onSuccess: (data) => {
+      // 保存token到localStorage（如无需自动登录，可改为仅提示并跳转登录页）
+      localStorage.setItem("access_token", data.access_token)
+      localStorage.setItem("token_type", data.token_type)
+
+      // 清除错误状态
+      setError(null)
+
+      // 刷新当前用户信息
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+
+      // 导航到首页
+      navigate({ to: "/" })
+    },
+    onError: (error: any) => {
+      console.error("Register failed:", error)
+      setError("注册失败，请检查输入信息")
+    },
+  })
+
   // 登出函数
   const logout = async () => {
     try {
@@ -121,6 +160,7 @@ export default function useAuth() {
     user,
     error,
     loginMutation,
+    registerMutation,
     logout,
     resetError,
     isLoading: loginMutation.isPending,

@@ -12,12 +12,12 @@ export const passwordRules = (isRequired = true) => {
   const rules: any = {
     minLength: {
       value: 8,
-      message: "Password must be at least 8 characters",
+      message: "密码必须至少8个字符",
     },
   }
 
   if (isRequired) {
-    rules.required = "Password is required"
+    rules.required = "密码是必填项"
   }
 
   return rules
@@ -30,12 +30,12 @@ export const confirmPasswordRules = (
   const rules: any = {
     validate: (value: string) => {
       const password = getValues().password || getValues().new_password
-      return value === password ? true : "The passwords do not match"
+      return value === password ? true : "密码不匹配"
     },
   }
 
   if (isRequired) {
-    rules.required = "Password confirmation is required"
+    rules.required = "请再次输入密码"
   }
 
   return rules
