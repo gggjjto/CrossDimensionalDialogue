@@ -6,11 +6,9 @@ from app.api.routes.login import login
 from app.api.routes.utils import utils
 from app.api.routes.dialogue import dialogue_orchestration
 from app.api.routes.image import image
+from app.api.routes.voice import voice_catalog, voice_processing
 
-from app.api.routes import (
-    items,
-    private
-)
+from app.api.routes import items, private
 from app.core.config import settings
 
 api_router = APIRouter()
@@ -28,27 +26,14 @@ api_router.include_router(characters.router)
 api_router.include_router(conversations.router)
 api_router.include_router(dialogue_orchestration.router)
 api_router.include_router(image.router)
-# api_router.include_router(multi_character.router)         # 暂时注释
 
 # 语音处理
-# api_router.include_router(voice.router)  # 暂时注释
-# api_router.include_router(voice_websocket.router)         # 暂时注释
-
-# 文件存储
-# api_router.include_router(storage.router)  # 暂时注释
-
-# 文件消息
-# api_router.include_router(image_file_message.router)     # 暂时注释
-
-# WebSocket连接
-# api_router.include_router(websocket.router)              # 暂时注释
+api_router.include_router(voice_catalog.router)
+api_router.include_router(voice_processing.router)
 
 # 工具和项目
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
-
-# 知识库（可选）
-# api_router.include_router(knowledge.router)
 
 # 仅本地环境包含的私有路由
 if settings.ENVIRONMENT == "local":
