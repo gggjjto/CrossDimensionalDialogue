@@ -14,9 +14,8 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.models.character import Character
 from app.models.conversation import Conversation, Message, SenderType, ContentType
-from app.services.llm_adapters import (
+from app.services.ai_module import (
     BaseLLMAdapter,
-    OpenAILLMAdapter,
     DeepSeekLLMAdapter,
     QwenLLMAdapter,
 )
@@ -70,15 +69,7 @@ class LLMService:
         try:
             provider = settings.LLM_PROVIDER.lower()
 
-            if provider == "openai":
-                if not settings.OPENAI_API_KEY:
-                    raise ValueError("OpenAI API密钥未配置")
-                self.adapter = OpenAILLMAdapter(
-                    api_key=settings.OPENAI_API_KEY, model_name=settings.OPENAI_MODEL
-                )
-                logger.info(f"OpenAI适配器初始化成功，模型: {settings.OPENAI_MODEL}")
-
-            elif provider == "deepseek":
+            if provider == "deepseek":
                 if not settings.DEEPSEEK_API_KEY:
                     raise ValueError("DeepSeek API密钥未配置")
                 self.adapter = DeepSeekLLMAdapter(

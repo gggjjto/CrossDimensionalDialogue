@@ -67,6 +67,16 @@ class CharacterBase(SQLModel):
         default=None, max_length=200, description="来源/版权声明"
     )
     is_active: bool = Field(default=True, description="是否可用")
+    # AI图片生成相关字段
+    auto_generate_image: bool = Field(
+        default=False, description="是否自动生成AI形象图片"
+    )
+    image_style: Optional[str] = Field(
+        default="realistic", max_length=20, description="AI生成图片风格"
+    )
+    image_size: Optional[str] = Field(
+        default="1024x1024", max_length=20, description="AI生成图片尺寸"
+    )
 
 
 class CharacterCreate(CharacterBase):
@@ -86,6 +96,9 @@ class CharacterUpdate(CharacterBase):
     example_lines: Optional[List[str]] = Field(default=None)
     source: Optional[str] = Field(default=None, max_length=200)
     is_active: Optional[bool] = Field(default=None)
+    auto_generate_image: Optional[bool] = Field(default=None)
+    image_style: Optional[str] = Field(default=None, max_length=20)
+    image_size: Optional[str] = Field(default=None, max_length=20)
     tag_ids: Optional[List[uuid.UUID]] = Field(
         default=None, description="关联的标签ID列表"
     )

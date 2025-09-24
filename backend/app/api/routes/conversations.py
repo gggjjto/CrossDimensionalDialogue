@@ -1,11 +1,16 @@
 import uuid
+import logging
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import get_db, get_current_user
+
+# 配置日志
+logger = logging.getLogger(__name__)
 from app.crud.conversation import (
     conversation,
     message,
@@ -37,7 +42,7 @@ from app.schemas.conversation import (
 )
 from app.utils.response import success_response, error_response
 
-router = APIRouter()
+router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 # 会话管理端点
@@ -51,29 +56,64 @@ async def create_conversation(
     conversation_in: ConversationCreate,
 ) -> ConversationPublic:
     """创建会话"""
-    # 检查用户会话数量限制
-    user_conversation_count = conversation.get_user_conversation_count(
-        db, user_id=current_user.id
-    )
-    max_conversations_limit = user_conversation_limit.get_by_user_and_type(
-        db, user_id=current_user.id, limit_type="max_conversations"
-    )
+    try:
+        # 验证角色是否存在
+        if conversation_in.character_id:
+            from app.crud import character
 
-    if (
-        max_conversations_limit
-        and user_conversation_count >= max_conversations_limit.limit_value
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"已达到最大会话数量限制: {max_conversations_limit.limit_value}",
+            character_obj = character.get(db, id=conversation_in.character_id)
+            if not character_obj:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"角色不存在: {conversation_in.character_id}",
+                )
+
+        # 检查用户会话数量限制
+        user_conversation_count = conversation.get_user_conversation_count(
+            db, user_id=current_user.id
+        )
+        max_conversations_limit = user_conversation_limit.get_by_user_and_type(
+            db, user_id=current_user.id, limit_type="max_conversations"
         )
 
-    # 创建会话
-    db_conversation = conversation.create(
-        db, obj_in=conversation_in, user_id=current_user.id
-    )
+        if (
+            max_conversations_limit
+            and user_conversation_count >= max_conversations_limit.limit_value
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"已达到最大会话数量限制: {max_conversations_limit.limit_value}",
+            )
 
-    return ConversationPublic.from_orm(db_conversation)
+        # 创建会话
+        db_conversation = conversation.create(
+            db, obj_in=conversation_in, user_id=current_user.id
+        )
+
+        return ConversationPublic.from_orm(db_conversation)
+
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
+    except IntegrityError as e:
+        # 处理外键约束违反等数据库完整性错误
+        logger.error(f"数据库完整性错误: {str(e)}")
+        if "foreign key constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="关联数据不存在，请检查角色ID是否正确",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="数据验证失败"
+            )
+    except Exception as e:
+        # 记录其他未预期的错误
+        logger.error(f"创建对话时发生错误: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建对话时发生内部错误",
+        )
 
 
 @router.get("/", response_model=ConversationListResponse)
@@ -177,7 +217,20 @@ async def update_conversation(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
+
+    # 验证角色是否存在（如果提供了character_id）
+    if conversation_in.character_id:
+        from app.crud import character
+
+        character_obj = character.get(db, id=conversation_in.character_id)
+        if not character_obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"角色不存在: {conversation_in.character_id}",
+            )
 
     # 更新会话
     db_conversation = conversation.update(
@@ -185,6 +238,7 @@ async def update_conversation(
     )
 
     return ConversationPublic.from_orm(db_conversation)
+
 
 
 @router.delete("/{conversation_id}", response_model=ConversationPublic)
@@ -200,7 +254,9 @@ async def delete_conversation(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 软删除会话
     db_conversation = conversation.delete(
@@ -208,7 +264,6 @@ async def delete_conversation(
     )
 
     return ConversationPublic.from_orm(db_conversation)
-
 
 @router.post("/search", response_model=ConversationListResponse)
 async def search_conversations(
@@ -258,7 +313,9 @@ async def create_message(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 检查用户消息限制
     daily_limit = user_conversation_limit.get_by_user_and_type(
@@ -267,7 +324,9 @@ async def create_message(
 
     if daily_limit:
         # 重置限制如果需要
-        daily_limit = user_conversation_limit.reset_if_needed(db, db_obj=daily_limit)
+        daily_limit = user_conversation_limit.reset_if_needed(
+            db, db_obj=daily_limit
+        )
 
         if daily_limit.current_value >= daily_limit.limit_value:
             raise HTTPException(
@@ -280,7 +339,9 @@ async def create_message(
         message_in.sender_id = current_user.id
 
     # 创建消息
-    db_message = message.create(db, obj_in=message_in, conversation_id=conversation_id)
+    db_message = message.create(
+        db, obj_in=message_in, conversation_id=conversation_id
+    )
 
     # 更新会话消息计数和最后消息时间
     db_conversation.message_count += 1
@@ -296,7 +357,6 @@ async def create_message(
         )
 
     return MessagePublic.from_orm(db_message)
-
 
 @router.get("/{conversation_id}/messages", response_model=MessageListResponse)
 async def get_messages(

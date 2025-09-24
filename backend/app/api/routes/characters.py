@@ -8,6 +8,8 @@ from app.api.deps import get_db, get_current_active_superuser
 from app.crud.character import character, character_tag
 from app.crud.character_embedding import character_embedding_crud
 from app.services.embedding_service import embedding_service
+from app.services.character_image_service import character_image_service
+from app.services.qiniu_storage_service import QiniuStorageService
 from app.models.character import (
     CharacterCreate,
     CharacterUpdate,
@@ -57,6 +59,31 @@ async def create_character(
 
         logger = logging.getLogger(__name__)
         logger.warning(f"生成角色向量嵌入失败: {str(e)}")
+
+    # 如果启用AI图片生成且没有提供头像URL，则生成AI形象图片
+    if character_obj.auto_generate_image and not character_obj.avatar_url:
+        try:
+            ai_image_bytes = await character_image_service.generate_character_image(
+                character_obj,
+                style=character_obj.image_style or "realistic",
+                size=character_obj.image_size or "1024*1024",
+            )
+            if ai_image_bytes:
+                # 上传图片到存储服务
+                storage_service = QiniuStorageService()
+                upload_result = storage_service.upload_character_avatar_bytes(
+                    ai_image_bytes, character_obj.id
+                )
+
+                # 更新角色的头像URL
+                character_obj.avatar_url = upload_result["url"]
+                db.commit()
+                db.refresh(character_obj)
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"生成角色AI形象图片失败: {str(e)}")
 
     return success_response(data=character_obj.model_dump(), msg="角色创建成功")
 
@@ -305,12 +332,15 @@ def delete_character_tag(
     if not tag_obj:
         raise HTTPException(status_code=404, detail="标签未找到")
 
-    tag_obj = character_tag.delete(db, id=tag_id)
-    return success_response(data=tag_obj.model_dump(), msg="标签删除成功")
+    try:
+        tag_obj = character_tag.delete(db, id=tag_id)
+        return success_response(data=tag_obj.model_dump(), msg="标签删除成功")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # 嵌入模型管理相关路由
-@router.get("/embeddings/model-info")
+@router.get("/embeddings/model-info", include_in_schema=False)
 def get_embedding_model_info(
     *,
     current_user: User = Depends(get_current_active_superuser),
@@ -327,7 +357,7 @@ def get_embedding_model_info(
         raise HTTPException(status_code=500, detail=f"获取模型信息失败: {str(e)}")
 
 
-@router.post("/embeddings/switch-provider")
+@router.post("/embeddings/switch-provider", include_in_schema=False)
 async def switch_embedding_provider(
     *,
     provider: str = Query(..., description="提供商名称: openai, aliyun"),
@@ -347,7 +377,7 @@ async def switch_embedding_provider(
 
 
 # 向量嵌入管理相关路由
-@router.post("/{character_id}/embeddings/generate")
+@router.post("/{character_id}/embeddings/generate", include_in_schema=False)
 async def generate_character_embeddings(
     *,
     db: Session = Depends(get_db),
@@ -374,7 +404,7 @@ async def generate_character_embeddings(
         raise HTTPException(status_code=500, detail=f"生成向量嵌入失败: {str(e)}")
 
 
-@router.get("/{character_id}/embeddings")
+@router.get("/{character_id}/embeddings", include_in_schema=False)
 def get_character_embeddings(
     *,
     db: Session = Depends(get_db),
@@ -396,7 +426,7 @@ def get_character_embeddings(
     )
 
 
-@router.delete("/{character_id}/embeddings")
+@router.delete("/{character_id}/embeddings", include_in_schema=False)
 def delete_character_embeddings(
     *,
     db: Session = Depends(get_db),
@@ -417,3 +447,113 @@ def delete_character_embeddings(
         db, character_id, embedding_type
     )
     return success_response(data={"deleted_count": count}, msg="向量嵌入删除成功")
+
+
+# AI图片生成相关路由
+@router.post("/{character_id}/generate-image")
+async def generate_character_image(
+    *,
+    db: Session = Depends(get_db),
+    character_id: uuid.UUID,
+    style: str = Query(
+        "realistic", description="图片风格: realistic, anime, cartoon, artistic"
+    ),
+    size: str = Query(
+        "1024x1024", description="图片尺寸: 1024x1024, 1792x1024, 1024x1792"
+    ),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    为角色生成AI形象图片。
+
+    需要超级用户权限。
+    """
+    character_obj = character.get(db, id=character_id)
+    if not character_obj:
+        raise HTTPException(status_code=404, detail="角色未找到")
+
+    try:
+        ai_image_bytes = await character_image_service.generate_character_image(
+            character_obj, style=style, size=size
+        )
+
+        if ai_image_bytes:
+            # 上传图片到存储服务
+            storage_service = QiniuStorageService()
+            upload_result = storage_service.upload_character_avatar_bytes(
+                ai_image_bytes, character_obj.id
+            )
+
+            # 更新角色的头像URL
+            character_obj.avatar_url = upload_result["url"]
+            db.commit()
+            db.refresh(character_obj)
+
+            return success_response(
+                data={
+                    "character_id": str(character_id),
+                    "avatar_url": upload_result["url"],
+                    "style": style,
+                    "size": size,
+                },
+                msg="AI形象图片生成成功",
+            )
+        else:
+            raise HTTPException(status_code=500, detail="AI形象图片生成失败")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成AI形象图片失败: {str(e)}")
+
+
+@router.get("/image-generation/styles", include_in_schema=False)
+def get_image_generation_styles():
+    """
+    获取支持的AI图片生成风格。
+    """
+    styles = character_image_service.get_supported_styles()
+    return success_response(data=styles, msg="获取图片风格成功")
+
+
+@router.get("/image-generation/sizes", include_in_schema=False)
+def get_image_generation_sizes():
+    """
+    获取支持的AI图片生成尺寸。
+    """
+    sizes = character_image_service.get_supported_sizes()
+    return success_response(data=sizes, msg="获取图片尺寸成功")
+
+
+@router.post("/{character_id}/validate-image", include_in_schema=False)
+async def validate_character_image(
+    *,
+    db: Session = Depends(get_db),
+    character_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    验证角色头像图片是否有效。
+
+    需要超级用户权限。
+    """
+    character_obj = character.get(db, id=character_id)
+    if not character_obj:
+        raise HTTPException(status_code=404, detail="角色未找到")
+
+    if not character_obj.avatar_url:
+        raise HTTPException(status_code=400, detail="角色没有头像图片")
+
+    try:
+        is_valid = await character_image_service.validate_image_url(
+            character_obj.avatar_url
+        )
+
+        return success_response(
+            data={
+                "character_id": str(character_id),
+                "avatar_url": character_obj.avatar_url,
+                "is_valid": is_valid,
+            },
+            msg="图片验证完成",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"验证图片失败: {str(e)}")
