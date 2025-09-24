@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { InputGroup } from "@/components/ui/input-group"
 import useCustomToast from "@/hooks/useCustomToast"
-import { emailPattern } from "@/utils"
+import { emailPattern } from "@/utils/rules"
 
 interface FormData {
   email: string

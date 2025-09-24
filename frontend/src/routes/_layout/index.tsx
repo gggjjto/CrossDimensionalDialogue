@@ -1,12 +1,4 @@
-import {
-  Box,
-  Input,
-  Text,
-  Image,
-  HStack,
-  Avatar,
-  Stack,
-} from "@chakra-ui/react"
+import { Box, Input, Text, Image, HStack, Stack } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { CiSearch } from "react-icons/ci"

@@ -8,15 +8,28 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
+import { createFileRoute } from '@tanstack/react-router'
+
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as CreateAgentRouteImport } from './routes/create-agent'
 import { Route as LayoutRouteImport } from './routes/_layout'
+import { Route as CreateAgentIndexRouteImport } from './routes/create-agent/index'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as CreateAgentLayoutRouteImport } from './routes/create-agent/_layout'
+import { Route as CreateAgentLayoutSelfResultRouteImport } from './routes/create-agent/_layout/self-result'
+import { Route as CreateAgentLayoutSelfRouteImport } from './routes/create-agent/_layout/self'
+import { Route as CreateAgentLayoutIpRouteImport } from './routes/create-agent/_layout/ip'
 
+const CreateAgentRouteImport = createFileRoute('/create-agent')()
+
+const CreateAgentRoute = CreateAgentRouteImport.update({
+  id: '/create-agent',
+  path: '/create-agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -37,86 +50,137 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CreateAgentRoute = CreateAgentRouteImport.update({
-  id: '/create-agent',
-  path: '/create-agent',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CreateAgentIndexRoute = CreateAgentIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CreateAgentRoute,
 } as any)
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const CreateAgentLayoutRoute = CreateAgentLayoutRouteImport.update({
+  id: '/_layout',
+  getParentRoute: () => CreateAgentRoute,
+} as any)
+const CreateAgentLayoutSelfResultRoute =
+  CreateAgentLayoutSelfResultRouteImport.update({
+    id: '/self-result',
+    path: '/self-result',
+    getParentRoute: () => CreateAgentLayoutRoute,
+  } as any)
+const CreateAgentLayoutSelfRoute = CreateAgentLayoutSelfRouteImport.update({
+  id: '/self',
+  path: '/self',
+  getParentRoute: () => CreateAgentLayoutRoute,
+} as any)
+const CreateAgentLayoutIpRoute = CreateAgentLayoutIpRouteImport.update({
+  id: '/ip',
+  path: '/ip',
+  getParentRoute: () => CreateAgentLayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/create-agent': typeof CreateAgentRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/create-agent': typeof CreateAgentLayoutRouteWithChildren
   '/': typeof LayoutIndexRoute
+  '/create-agent/': typeof CreateAgentIndexRoute
+  '/create-agent/ip': typeof CreateAgentLayoutIpRoute
+  '/create-agent/self': typeof CreateAgentLayoutSelfRoute
+  '/create-agent/self-result': typeof CreateAgentLayoutSelfResultRoute
 }
 export interface FileRoutesByTo {
-  '/create-agent': typeof CreateAgentRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/create-agent': typeof CreateAgentIndexRoute
   '/': typeof LayoutIndexRoute
+  '/create-agent/ip': typeof CreateAgentLayoutIpRoute
+  '/create-agent/self': typeof CreateAgentLayoutSelfRoute
+  '/create-agent/self-result': typeof CreateAgentLayoutSelfResultRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
-  '/create-agent': typeof CreateAgentRoute
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/create-agent': typeof CreateAgentRouteWithChildren
+  '/create-agent/_layout': typeof CreateAgentLayoutRouteWithChildren
   '/_layout/': typeof LayoutIndexRoute
+  '/create-agent/': typeof CreateAgentIndexRoute
+  '/create-agent/_layout/ip': typeof CreateAgentLayoutIpRoute
+  '/create-agent/_layout/self': typeof CreateAgentLayoutSelfRoute
+  '/create-agent/_layout/self-result': typeof CreateAgentLayoutSelfResultRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/create-agent'
     | '/login'
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/create-agent'
     | '/'
+    | '/create-agent/'
+    | '/create-agent/ip'
+    | '/create-agent/self'
+    | '/create-agent/self-result'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/create-agent'
     | '/login'
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/create-agent'
     | '/'
+    | '/create-agent/ip'
+    | '/create-agent/self'
+    | '/create-agent/self-result'
   id:
     | '__root__'
     | '/_layout'
-    | '/create-agent'
     | '/login'
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/create-agent'
+    | '/create-agent/_layout'
     | '/_layout/'
+    | '/create-agent/'
+    | '/create-agent/_layout/ip'
+    | '/create-agent/_layout/self'
+    | '/create-agent/_layout/self-result'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
-  CreateAgentRoute: typeof CreateAgentRoute
   LoginRoute: typeof LoginRoute
   RecoverPasswordRoute: typeof RecoverPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  CreateAgentRoute: typeof CreateAgentRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/create-agent': {
+      id: '/create-agent'
+      path: '/create-agent'
+      fullPath: '/create-agent'
+      preLoaderRoute: typeof CreateAgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -145,13 +209,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/create-agent': {
-      id: '/create-agent'
-      path: '/create-agent'
-      fullPath: '/create-agent'
-      preLoaderRoute: typeof CreateAgentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_layout': {
       id: '/_layout'
       path: ''
@@ -159,12 +216,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/create-agent/': {
+      id: '/create-agent/'
+      path: '/'
+      fullPath: '/create-agent/'
+      preLoaderRoute: typeof CreateAgentIndexRouteImport
+      parentRoute: typeof CreateAgentRoute
+    }
     '/_layout/': {
       id: '/_layout/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/create-agent/_layout': {
+      id: '/create-agent/_layout'
+      path: '/create-agent'
+      fullPath: '/create-agent'
+      preLoaderRoute: typeof CreateAgentLayoutRouteImport
+      parentRoute: typeof CreateAgentRoute
+    }
+    '/create-agent/_layout/self-result': {
+      id: '/create-agent/_layout/self-result'
+      path: '/self-result'
+      fullPath: '/create-agent/self-result'
+      preLoaderRoute: typeof CreateAgentLayoutSelfResultRouteImport
+      parentRoute: typeof CreateAgentLayoutRoute
+    }
+    '/create-agent/_layout/self': {
+      id: '/create-agent/_layout/self'
+      path: '/self'
+      fullPath: '/create-agent/self'
+      preLoaderRoute: typeof CreateAgentLayoutSelfRouteImport
+      parentRoute: typeof CreateAgentLayoutRoute
+    }
+    '/create-agent/_layout/ip': {
+      id: '/create-agent/_layout/ip'
+      path: '/ip'
+      fullPath: '/create-agent/ip'
+      preLoaderRoute: typeof CreateAgentLayoutIpRouteImport
+      parentRoute: typeof CreateAgentLayoutRoute
     }
   }
 }
@@ -180,13 +272,42 @@ const LayoutRouteChildren: LayoutRouteChildren = {
 const LayoutRouteWithChildren =
   LayoutRoute._addFileChildren(LayoutRouteChildren)
 
+interface CreateAgentLayoutRouteChildren {
+  CreateAgentLayoutIpRoute: typeof CreateAgentLayoutIpRoute
+  CreateAgentLayoutSelfRoute: typeof CreateAgentLayoutSelfRoute
+  CreateAgentLayoutSelfResultRoute: typeof CreateAgentLayoutSelfResultRoute
+}
+
+const CreateAgentLayoutRouteChildren: CreateAgentLayoutRouteChildren = {
+  CreateAgentLayoutIpRoute: CreateAgentLayoutIpRoute,
+  CreateAgentLayoutSelfRoute: CreateAgentLayoutSelfRoute,
+  CreateAgentLayoutSelfResultRoute: CreateAgentLayoutSelfResultRoute,
+}
+
+const CreateAgentLayoutRouteWithChildren =
+  CreateAgentLayoutRoute._addFileChildren(CreateAgentLayoutRouteChildren)
+
+interface CreateAgentRouteChildren {
+  CreateAgentLayoutRoute: typeof CreateAgentLayoutRouteWithChildren
+  CreateAgentIndexRoute: typeof CreateAgentIndexRoute
+}
+
+const CreateAgentRouteChildren: CreateAgentRouteChildren = {
+  CreateAgentLayoutRoute: CreateAgentLayoutRouteWithChildren,
+  CreateAgentIndexRoute: CreateAgentIndexRoute,
+}
+
+const CreateAgentRouteWithChildren = CreateAgentRoute._addFileChildren(
+  CreateAgentRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
-  CreateAgentRoute: CreateAgentRoute,
   LoginRoute: LoginRoute,
   RecoverPasswordRoute: RecoverPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  CreateAgentRoute: CreateAgentRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

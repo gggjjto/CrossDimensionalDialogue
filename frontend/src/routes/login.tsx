@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { InputGroup } from "@/components/ui/input-group"
 import { PasswordInput } from "@/components/ui/password-input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import { emailPattern, passwordRules } from "../utils"
+import { emailPattern, passwordRules } from "../utils/rules"
 
 export const Route = createFileRoute("/login")({
   component: Login,

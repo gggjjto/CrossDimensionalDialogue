@@ -21,7 +21,11 @@ import { Button } from "@/components/ui/button"
 import { InputGroup } from "@/components/ui/input-group"
 import { PasswordInput } from "@/components/ui/password-input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import { confirmPasswordRules, emailPattern, passwordRules } from "@/utils"
+import {
+  confirmPasswordRules,
+  emailPattern,
+  passwordRules,
+} from "@/utils/rules"
 // Logo removed as unused
 
 export const Route = createFileRoute("/signup")({

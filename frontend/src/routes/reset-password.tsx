@@ -7,7 +7,7 @@ import { FiLock } from "react-icons/fi"
 import { Button } from "@/components/ui/button"
 import { PasswordInput } from "@/components/ui/password-input"
 import useCustomToast from "@/hooks/useCustomToast"
-import { confirmPasswordRules, passwordRules } from "@/utils"
+import { confirmPasswordRules, passwordRules } from "@/utils/rules"
 
 interface NewPasswordForm {
   confirm_password: string
