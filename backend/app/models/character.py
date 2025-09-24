@@ -77,6 +77,10 @@ class CharacterBase(SQLModel):
     image_size: Optional[str] = Field(
         default="1024x1024", max_length=20, description="AI生成图片尺寸"
     )
+    # 语音相关字段
+    default_voice: Optional[str] = Field(
+        default="Cherry", max_length=50, description="默认音色"
+    )
 
 
 class CharacterCreate(CharacterBase):
@@ -99,6 +103,7 @@ class CharacterUpdate(CharacterBase):
     auto_generate_image: Optional[bool] = Field(default=None)
     image_style: Optional[str] = Field(default=None, max_length=20)
     image_size: Optional[str] = Field(default=None, max_length=20)
+    default_voice: Optional[str] = Field(default=None, max_length=50)
     tag_ids: Optional[List[uuid.UUID]] = Field(
         default=None, description="关联的标签ID列表"
     )

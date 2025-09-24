@@ -29,6 +29,9 @@ class CharacterBase(SQLModel):
     example_lines: Optional[List[str]] = Field(default=None, description="示例台词")
     source: Optional[str] = Field(default=None, max_length=200, description="来源/版权")
     is_active: bool = Field(default=True, description="是否激活")
+    default_voice: Optional[str] = Field(
+        default="Cherry", max_length=50, description="默认音色"
+    )
 
 
 # 角色创建模式
@@ -45,6 +48,7 @@ class CharacterUpdate(SQLModel):
     example_lines: Optional[List[str]] = Field(default=None)
     source: Optional[str] = Field(default=None, max_length=200)
     is_active: Optional[bool] = Field(default=None)
+    default_voice: Optional[str] = Field(default=None, max_length=50)
     tag_ids: Optional[List[uuid.UUID]] = Field(default=None)
 
 
