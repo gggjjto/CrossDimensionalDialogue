@@ -4,21 +4,21 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { type SubmitHandler, useForm } from "react-hook-form"
 import { FiLock } from "react-icons/fi"
 
-import { type ApiError, LoginService, type NewPassword } from "@/client"
 import { Button } from "@/components/ui/button"
 import { PasswordInput } from "@/components/ui/password-input"
-import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { confirmPasswordRules, handleError, passwordRules } from "@/utils"
+import { confirmPasswordRules, passwordRules } from "@/utils/rules"
 
-interface NewPasswordForm extends NewPassword {
+interface NewPasswordForm {
   confirm_password: string
+  new_password: string
 }
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPassword,
   beforeLoad: async () => {
-    if (isLoggedIn()) {
+    if (false) {
+      // TODO: 鉴权
       throw redirect({
         to: "/",
       })
@@ -43,12 +43,11 @@ function ResetPassword() {
   const { showSuccessToast } = useCustomToast()
   const navigate = useNavigate()
 
-  const resetPassword = async (data: NewPassword) => {
+  const resetPassword = async (data: NewPasswordForm) => {
     const token = new URLSearchParams(window.location.search).get("token")
     if (!token) return
-    await LoginService.resetPassword({
-      requestBody: { new_password: data.new_password, token: token },
-    })
+    // TODO: 密码重置逻辑对接
+    console.log("密码重置提交数据", data)
   }
 
   const mutation = useMutation({
@@ -58,8 +57,9 @@ function ResetPassword() {
       reset()
       navigate({ to: "/login" })
     },
-    onError: (err: ApiError) => {
-      handleError(err)
+    onError: (err) => {
+      // TODO: 错误处理
+      // handleError(err)
     },
   })
 
