@@ -13,7 +13,6 @@ from sqlmodel import SQLModel
 
 from app.models.character import (
     CharacterTagPublic,
-    CharacterEmbeddingPublic,
 )
 
 
@@ -55,7 +54,6 @@ class CharacterPublic(CharacterBase):
     created_at: datetime
     updated_at: datetime
     tags: List[CharacterTagPublic] = Field(default_factory=list)
-    embeddings: List[CharacterEmbeddingPublic] = Field(default_factory=list)
 
 
 # 角色列表响应模式

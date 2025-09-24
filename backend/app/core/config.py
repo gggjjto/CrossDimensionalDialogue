@@ -95,37 +95,24 @@ class Settings(BaseSettings):
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr = "test@example.com"
+    FIRST_SUPERUSER: EmailStr = "admin@example.com"
     FIRST_SUPERUSER_PASSWORD: str = ""
 
-    # LLM模型配置
-    LLM_PROVIDER: Literal["openai", "deepseek", "qwen", "local"] = "openai"
-
-    # OpenAI 配置
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-3.5-turbo"
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
-
+    # AI模型配置
+    LLM_PROVIDER: str = "qwen"
     # DeepSeek 配置
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_MODEL: str = "deepseek-chat"
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
 
-    # 阿里千问配置
+    # 通义千问配置
     QWEN_API_KEY: str = ""
-    QWEN_MODEL: str = "qwen-turbo"
-    QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-
-    # 嵌入模型配置
-    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "aliyun"
-
-    # 阿里云配置
-    ALIYUN_API_KEY: str = ""
-    ALIYUN_EMBEDDING_MODEL: str = "text-embedding-v4"
-
-    # 本地模型配置（可选）
-    LOCAL_EMBEDDING_MODEL_PATH: str = ""
-    LOCAL_EMBEDDING_DEVICE: str = "cpu"
+    # 文生文
+    QWEN_CHAT_MODEL: str = "qwen-turbo"
+    # 文生图
+    QWEN_IMAGE_MODEL: str = "wan2.2-t2i-flash"
+    # 向量嵌入
+    QWEN_EMBEDDING_MODEL: str = "text-embedding-v4"
 
     # 音频存储配置
     AUDIO_STORAGE_PATH: str = "data/audio_files"
@@ -136,8 +123,11 @@ class Settings(BaseSettings):
     QINIU_SECRET_KEY: str = ""
     QINIU_BUCKET_NAME: str = ""
     QINIU_DOMAIN: str = ""  # 七牛云存储空间绑定的域名
-    QINIU_USE_HTTPS: bool = True
+    QINIU_USE_HTTPS: bool = False
     QINIU_CDN_DOMAIN: str = ""  # CDN加速域名（可选）
+
+    # 最大会话数量限制
+    MAX_CONVERSATIONS_LIMIT: int = 10
 
     # 语音转文本(STT)配置
     STT_ENGINE: Literal["openai", "azure", "google", "whisper"] = "whisper"
@@ -145,16 +135,6 @@ class Settings(BaseSettings):
 
     # 文本转语音(TTS)配置
     TTS_ENGINE: Literal["openai", "azure", "google", "elevenlabs", "local"] = "openai"
-
-    # Azure Speech Services配置
-    AZURE_SPEECH_KEY: str = ""
-    AZURE_SPEECH_REGION: str = ""
-
-    # Google Cloud Speech配置
-    GOOGLE_APPLICATION_CREDENTIALS: str = ""
-
-    # ElevenLabs配置
-    ELEVENLABS_API_KEY: str = ""
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

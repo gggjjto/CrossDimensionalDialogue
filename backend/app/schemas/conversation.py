@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel import SQLModel
 
 from app.models.conversation import (
@@ -34,17 +34,37 @@ class ConversationCreate(ConversationBase):
     character_id: uuid.UUID = Field(..., description="角色ID")
     settings: Optional[Dict[str, Any]] = Field(None, description="会话设置")
 
-    @validator("title")
+    @field_validator("title")
     def validate_title(cls, v):
         if not v or not v.strip():
             raise ValueError("会话标题不能为空")
         return v.strip()
 
-    @validator("settings")
+    @field_validator("settings")
     def validate_settings(cls, v):
         if v is not None:
             # 验证设置参数
-            allowed_keys = {"temperature", "max_tokens", "voice_enabled", "language"}
+            allowed_keys = {
+                "temperature",
+                "max_tokens",
+                "voice_enabled",
+                "language",
+                "tone",
+                "max_turns",
+                "top_p",
+                "context_window_size",
+                "enable_context_summary",
+                "enable_tts",
+                "tts_voice",
+                "auto_save",
+                "enable_rag",
+                "rag_threshold",
+                "max_rag_results",
+                "multi_character_mode",
+                "character_response_strategy",
+                "enable_character_switching",
+                "max_characters",
+            }
             for key in v.keys():
                 if key not in allowed_keys:
                     raise ValueError(f"不支持的设置参数: {key}")
@@ -64,6 +84,58 @@ class ConversationCreate(ConversationBase):
                     or max_tokens > 4000
                 ):
                     raise ValueError("最大令牌数必须在1-4000之间")
+
+            # 验证top_p参数
+            if "top_p" in v:
+                top_p = v["top_p"]
+                if not isinstance(top_p, (int, float)) or top_p < 0 or top_p > 1:
+                    raise ValueError("top_p参数必须在0-1之间")
+
+            # 验证上下文窗口大小
+            if "context_window_size" in v:
+                window_size = v["context_window_size"]
+                if (
+                    not isinstance(window_size, int)
+                    or window_size < 1
+                    or window_size > 50
+                ):
+                    raise ValueError("上下文窗口大小必须在1-50之间")
+
+            # 验证最大轮数
+            if "max_turns" in v:
+                max_turns = v["max_turns"]
+                if not isinstance(max_turns, int) or max_turns < 1 or max_turns > 100:
+                    raise ValueError("最大轮数必须在1-100之间")
+
+            # 验证RAG阈值
+            if "rag_threshold" in v:
+                rag_threshold = v["rag_threshold"]
+                if (
+                    not isinstance(rag_threshold, (int, float))
+                    or rag_threshold < 0
+                    or rag_threshold > 1
+                ):
+                    raise ValueError("RAG阈值必须在0-1之间")
+
+            # 验证最大RAG结果数
+            if "max_rag_results" in v:
+                max_rag_results = v["max_rag_results"]
+                if (
+                    not isinstance(max_rag_results, int)
+                    or max_rag_results < 1
+                    or max_rag_results > 10
+                ):
+                    raise ValueError("最大RAG结果数必须在1-10之间")
+
+            # 验证最大角色数量
+            if "max_characters" in v:
+                max_characters = v["max_characters"]
+                if (
+                    not isinstance(max_characters, int)
+                    or max_characters < 1
+                    or max_characters > 10
+                ):
+                    raise ValueError("最大角色数量必须在1-10之间")
 
         return v
 
@@ -76,17 +148,37 @@ class ConversationUpdate(SQLModel):
     status: Optional[ConversationStatus] = Field(None)
     settings: Optional[Dict[str, Any]] = Field(None)
 
-    @validator("title")
+    @field_validator("title")
     def validate_title(cls, v):
         if v is not None and (not v or not v.strip()):
             raise ValueError("会话标题不能为空")
         return v.strip() if v else v
 
-    @validator("settings")
+    @field_validator("settings")
     def validate_settings(cls, v):
         if v is not None:
             # 验证设置参数
-            allowed_keys = {"temperature", "max_tokens", "voice_enabled", "language"}
+            allowed_keys = {
+                "temperature",
+                "max_tokens",
+                "voice_enabled",
+                "language",
+                "tone",
+                "max_turns",
+                "top_p",
+                "context_window_size",
+                "enable_context_summary",
+                "enable_tts",
+                "tts_voice",
+                "auto_save",
+                "enable_rag",
+                "rag_threshold",
+                "max_rag_results",
+                "multi_character_mode",
+                "character_response_strategy",
+                "enable_character_switching",
+                "max_characters",
+            }
             for key in v.keys():
                 if key not in allowed_keys:
                     raise ValueError(f"不支持的设置参数: {key}")
@@ -106,6 +198,58 @@ class ConversationUpdate(SQLModel):
                     or max_tokens > 4000
                 ):
                     raise ValueError("最大令牌数必须在1-4000之间")
+
+            # 验证top_p参数
+            if "top_p" in v:
+                top_p = v["top_p"]
+                if not isinstance(top_p, (int, float)) or top_p < 0 or top_p > 1:
+                    raise ValueError("top_p参数必须在0-1之间")
+
+            # 验证上下文窗口大小
+            if "context_window_size" in v:
+                window_size = v["context_window_size"]
+                if (
+                    not isinstance(window_size, int)
+                    or window_size < 1
+                    or window_size > 50
+                ):
+                    raise ValueError("上下文窗口大小必须在1-50之间")
+
+            # 验证最大轮数
+            if "max_turns" in v:
+                max_turns = v["max_turns"]
+                if not isinstance(max_turns, int) or max_turns < 1 or max_turns > 100:
+                    raise ValueError("最大轮数必须在1-100之间")
+
+            # 验证RAG阈值
+            if "rag_threshold" in v:
+                rag_threshold = v["rag_threshold"]
+                if (
+                    not isinstance(rag_threshold, (int, float))
+                    or rag_threshold < 0
+                    or rag_threshold > 1
+                ):
+                    raise ValueError("RAG阈值必须在0-1之间")
+
+            # 验证最大RAG结果数
+            if "max_rag_results" in v:
+                max_rag_results = v["max_rag_results"]
+                if (
+                    not isinstance(max_rag_results, int)
+                    or max_rag_results < 1
+                    or max_rag_results > 10
+                ):
+                    raise ValueError("最大RAG结果数必须在1-10之间")
+
+            # 验证最大角色数量
+            if "max_characters" in v:
+                max_characters = v["max_characters"]
+                if (
+                    not isinstance(max_characters, int)
+                    or max_characters < 1
+                    or max_characters > 10
+                ):
+                    raise ValueError("最大角色数量必须在1-10之间")
 
         return v
 
@@ -144,7 +288,9 @@ class MessageBase(SQLModel):
 
     content: str = Field(..., description="消息内容")
     content_type: ContentType = Field(ContentType.TEXT, description="内容类型")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="消息元数据")
+    message_metadata: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="消息元数据"
+    )
     status: MessageStatus = Field(MessageStatus.SENDING, description="消息状态")
 
 
@@ -155,7 +301,7 @@ class MessageCreate(MessageBase):
     sender_id: Optional[uuid.UUID] = Field(None, description="发送者ID")
     parent_id: Optional[uuid.UUID] = Field(None, description="父消息ID")
 
-    @validator("content")
+    @field_validator("content")
     def validate_content(cls, v):
         if not v or not v.strip():
             raise ValueError("消息内容不能为空")
@@ -163,9 +309,9 @@ class MessageCreate(MessageBase):
             raise ValueError("消息内容不能超过5000字符")
         return v.strip()
 
-    @validator("metadata")
-    def validate_metadata(cls, v):
-        if v is not None:
+    @field_validator("message_metadata")
+    def validate_message_metadata(cls, v):
+        if v:
             # 验证元数据
             allowed_keys = {"length", "language", "sentiment", "confidence"}
             for key in v.keys():
@@ -180,10 +326,10 @@ class MessageUpdate(SQLModel):
 
     content: Optional[str] = Field(None)
     content_type: Optional[ContentType] = Field(None)
-    metadata: Optional[Dict[str, Any]] = Field(None)
+    message_metadata: Optional[Dict[str, Any]] = Field(None)
     status: Optional[MessageStatus] = Field(None)
 
-    @validator("content")
+    @field_validator("content")
     def validate_content(cls, v):
         if v is not None:
             if not v.strip():
@@ -193,8 +339,8 @@ class MessageUpdate(SQLModel):
             return v.strip()
         return v
 
-    @validator("metadata")
-    def validate_metadata(cls, v):
+    @field_validator("message_metadata")
+    def validate_message_metadata(cls, v):
         if v is not None:
             # 验证元数据
             allowed_keys = {"length", "language", "sentiment", "confidence"}
@@ -243,20 +389,20 @@ class ConversationSearchRequest(SQLModel):
     order_by: str = Field("last_message_at", description="排序字段")
     order: str = Field("desc", description="排序方向")
 
-    @validator("query")
+    @field_validator("query")
     def validate_query(cls, v):
         if v is not None and len(v.strip()) < 2:
             raise ValueError("搜索关键词至少需要2个字符")
         return v.strip() if v else v
 
-    @validator("order_by")
+    @field_validator("order_by")
     def validate_order_by(cls, v):
         allowed_fields = {"created_at", "last_message_at", "updated_at", "title"}
         if v not in allowed_fields:
             raise ValueError(f"不支持的排序字段: {v}")
         return v
 
-    @validator("order")
+    @field_validator("order")
     def validate_order(cls, v):
         if v not in {"asc", "desc"}:
             raise ValueError("排序方向必须是asc或desc")
@@ -274,13 +420,13 @@ class MessageSearchRequest(SQLModel):
     skip: int = Field(0, ge=0, description="跳过的记录数")
     limit: int = Field(50, ge=1, le=200, description="返回的记录数")
 
-    @validator("query")
+    @field_validator("query")
     def validate_query(cls, v):
         if v is not None and len(v.strip()) < 2:
             raise ValueError("搜索关键词至少需要2个字符")
         return v.strip() if v else v
 
-    @validator("since", "until")
+    @field_validator("since", "until")
     def validate_datetime(cls, v):
         if v is not None and v > datetime.utcnow():
             raise ValueError("时间不能是未来时间")
@@ -312,7 +458,7 @@ class ConversationContextCreate(ConversationContextBase):
 
     conversation_id: uuid.UUID = Field(..., description="会话ID")
 
-    @validator("content")
+    @field_validator("content")
     def validate_content(cls, v):
         if not v or not v.strip():
             raise ValueError("上下文内容不能为空")
@@ -343,7 +489,7 @@ class ConversationTagCreate(ConversationTagBase):
 
     conversation_id: uuid.UUID = Field(..., description="会话ID")
 
-    @validator("tag_name")
+    @field_validator("tag_name")
     def validate_tag_name(cls, v):
         if not v or not v.strip():
             raise ValueError("标签名称不能为空")
@@ -373,7 +519,7 @@ class UserConversationLimitCreate(UserConversationLimitBase):
 
     user_id: uuid.UUID = Field(..., description="用户ID")
 
-    @validator("limit_type")
+    @field_validator("limit_type")
     def validate_limit_type(cls, v):
         allowed_types = {
             "daily_messages",
@@ -430,7 +576,7 @@ class ConversationExportRequest(SQLModel):
     date_from: Optional[datetime] = Field(None, description="开始日期")
     date_to: Optional[datetime] = Field(None, description="结束日期")
 
-    @validator("format")
+    @field_validator("format")
     def validate_format(cls, v):
         allowed_formats = {"json", "csv", "txt"}
         if v not in allowed_formats:
