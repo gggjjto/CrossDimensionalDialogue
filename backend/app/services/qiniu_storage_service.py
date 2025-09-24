@@ -147,6 +147,39 @@ class QiniuStorageService:
             "file_size": file_path.stat().st_size,
         }
 
+    def upload_character_avatar_bytes(
+        self, image_bytes: bytes, character_id: int, file_extension: str = "png"
+    ) -> Dict[str, Any]:
+        """
+        上传角色头像（字节数据）
+
+        Args:
+            image_bytes: 图片字节数据
+            character_id: 角色ID
+            file_extension: 文件扩展名
+
+        Returns:
+            Dict: 上传结果信息
+        """
+        # 生成文件key
+        prefix = f"characters/{character_id}/avatar"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        key = f"{prefix}/{timestamp}.{file_extension}"
+
+        # 确定内容类型
+        content_type = mimetypes.guess_type(f"image.{file_extension}")[0] or "image/png"
+
+        # 上传数据
+        result = self.client.upload_data(
+            image_bytes, key, content_type=content_type, overwrite=True
+        )
+
+        return {
+            **result,
+            "character_id": character_id,
+            "file_type": "avatar",
+        }
+
     def upload_document(
         self,
         file_path: Union[str, Path],
@@ -265,10 +298,9 @@ class QiniuStorageService:
         Returns:
             str: 缩略图URL
         """
-        base_url = self.client._get_public_url(key)
         # 七牛云图片处理参数
-        params = f"?imageView2/1/w/{width}/h/{height}/q/{quality}/format/{format}"
-        return base_url + params
+        params = f"imageView2/1/w/{width}/h/{height}/q/{quality}/format/{format}"
+        return self.client.get_image_url_with_params(key, params)
 
     def get_image_info(self, key: str) -> Optional[Dict[str, Any]]:
         """

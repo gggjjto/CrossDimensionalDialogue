@@ -42,9 +42,9 @@ class QiniuStorageClient:
         self.bucket_manager = BucketManager(self.auth)
         self.cdn_manager = CdnManager(self.auth)
         self.bucket_name = settings.QINIU_BUCKET_NAME
-        self.domain = settings.QINIU_DOMAIN
+        self.domain = settings.QINIU_DOMAIN.rstrip("/") if settings.QINIU_DOMAIN else ""
         self.use_https = settings.QINIU_USE_HTTPS
-        self.cdn_domain = settings.QINIU_CDN_DOMAIN or self.domain
+        self.cdn_domain = (settings.QINIU_CDN_DOMAIN or settings.QINIU_DOMAIN or "").rstrip("/")
 
     def _get_protocol(self) -> str:
         """获取协议"""
@@ -72,30 +72,19 @@ class QiniuStorageClient:
 
     def _get_public_url(self, key: str) -> str:
         """
-        获取公开访问URL
-
-        Args:
-            key: 文件key
-
-        Returns:
-            str: 公开访问URL
+        公共 URL，不签名。适合公开 bucket 或已配置 CDN 的情况。
         """
+        domain = self.cdn_domain or self.domain
         protocol = self._get_protocol()
-        return f"{protocol}://{self.cdn_domain}/{key}"
+        return f"{protocol}://{domain}/{key}"
 
     def _get_private_url(self, key: str, expires: int = 3600) -> str:
         """
-        获取私有访问URL（带签名）
-
-        Args:
-            key: 文件key
-            expires: 过期时间（秒）
-
-        Returns:
-            str: 私有访问URL
+        私有 URL，会生成签名。适合私有 bucket。
         """
+        domain = self.domain or self.cdn_domain
         protocol = self._get_protocol()
-        base_url = f"{protocol}://{self.domain}/{key}"
+        base_url = f"{protocol}://{domain}/{key}"
         return self.auth.private_download_url(base_url, expires=expires)
 
     def upload_file(
@@ -348,6 +337,28 @@ class QiniuStorageClient:
             scope = self.bucket_name
 
         return self.auth.upload_token(scope, key, expires, policy)
+
+    def get_image_url_with_params(
+        self, key: str, params: str = "", expires: int = 3600, private: bool = False
+    ) -> str:
+        """
+        带图片处理参数的 URL。
+        - private=False：返回普通 CDN 地址
+        - private=True ：对带参数的完整 URL 签名
+        """
+        protocol = self._get_protocol()
+        domain = self.cdn_domain or self.domain
+        if not domain:
+            raise QiniuStorageError("没有配置 QINIU_DOMAIN 或 QINIU_CDN_DOMAIN")
+
+        if params:
+            base = f"{protocol}://{domain}/{key}?{params}"
+        else:
+            base = f"{protocol}://{domain}/{key}"
+
+        if private:
+            return self.auth.private_download_url(base, expires=expires)
+        return base
 
 
 # 全局客户端实例
