@@ -58,8 +58,6 @@ class MessageInfo(BaseModel):
 class UpdateConversationSettingsRequest(BaseModel):
     """更新会话设置请求模型"""
 
-    llm_provider: Optional[LLMProvider] = Field(default=None, description="LLM提供商")
-    llm_model: Optional[str] = Field(default=None, description="LLM模型")
     temperature: Optional[float] = Field(
         default=None, ge=0.0, le=2.0, description="温度参数"
     )

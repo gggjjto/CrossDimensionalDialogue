@@ -155,12 +155,12 @@ class DialogueOrchestrationService:
                 conversation=conversation,
                 user_message=user_message,
                 session=db,
-                temperature=settings.temperature,
-                max_tokens=settings.max_tokens,
+                temperature=settings.temperature if settings else 0.7,
+                max_tokens=settings.max_tokens if settings else 1000,
             )
 
             logger.info(
-                f"角色回复生成成功: {character.name} (使用{settings.llm_provider})"
+                f"角色回复生成成功: {character.name}"
             )
             return response
 
@@ -351,6 +351,10 @@ class DialogueOrchestrationService:
             Dict[str, Any]: 处理结果，包含文本回复、语音回复和元数据
         """
         try:
+            # 0. 为 settings 设置默认值
+            if settings == None:
+                settings = ConversationSettings()
+                settings.enable_tts = True
             # 1. 获取会话信息
             db_conversation = conversation.get_by_user_and_id(
                 db, id=conversation_id, user_id=user_id
@@ -435,9 +439,7 @@ class DialogueOrchestrationService:
 
             # 创建STT请求
             stt_request = STTRequest(
-                audio_url=audio_url,
-                model="qwen3-asr-flash",
-                response_format="json",
+                audio_url=audio_url
             )
 
             # 调用STT服务

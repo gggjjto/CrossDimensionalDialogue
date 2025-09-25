@@ -17,7 +17,9 @@ async def generate_image(
     quality: str = "standard",
     current_user: User = Depends(get_current_user),
 ):
-    # 使用AI生成图片
+    """
+    使用AI生成图片
+    """
     image_bytes = await character_image_service.generate_character_image_with_prompt(
         prompt, size, style, quality
     )
