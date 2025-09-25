@@ -1,6 +1,6 @@
 import { Field } from "@/components/ui/field"
 import { Box, Input, Textarea } from "@chakra-ui/react"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import {
   bioRules,
@@ -10,6 +10,7 @@ import {
   publicInfoRules,
   openingLineRules,
 } from "@/utils/rules"
+import { useSelfAgent } from "@/contexts/SelfAgentContext"
 
 export type ExtraFormMode = "ip" | "self"
 
@@ -25,12 +26,11 @@ export interface ExtraInfoValues {
 
 interface ExtraInfoFormProps {
   mode?: ExtraFormMode
-  defaultValues?: Partial<ExtraInfoValues>
-  onChange?: (values: ExtraInfoValues, isValid: boolean) => void
 }
 
 export default function ExtraInfoForm(props: ExtraInfoFormProps) {
-  const { mode = "ip", defaultValues, onChange } = props
+  const { mode = "ip" } = props
+  const { state, dispatch } = useSelfAgent()
 
   const {
     register,
@@ -39,19 +39,29 @@ export default function ExtraInfoForm(props: ExtraInfoFormProps) {
   } = useForm<ExtraInfoValues>({
     mode: "onBlur",
     criteriaMode: "all",
-    defaultValues: {
-      relationWithUser: "",
-      publicInfo: "",
-      openingLine: "",
-      ...defaultValues,
-    },
+    defaultValues: state.extraData,
   })
 
-  const values = watch()
-  // 仅在值或校验状态变化时通知父级，避免重复渲染触发
+  const rawValues = watch()
+
+  // 使用 useMemo 来稳定 values 对象引用
+  const values = useMemo(
+    () => rawValues as ExtraInfoValues,
+    [
+      rawValues.nickname,
+      rawValues.biography,
+      rawValues.setting,
+      rawValues.relationWithUser,
+      rawValues.publicInfo,
+      rawValues.openingLine,
+    ]
+  )
+
+  // 更新 Context 状态
   useEffect(() => {
-    onChange?.(values as ExtraInfoValues, isValid)
-  }, [values, isValid, onChange])
+    dispatch({ type: "SET_EXTRA_DATA", payload: values })
+    dispatch({ type: "SET_EXTRA_FORM_VALID", payload: isValid })
+  }, [values, isValid, dispatch])
 
   return (
     <Box w={"full"} spaceY={6}>

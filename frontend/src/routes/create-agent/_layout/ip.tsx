@@ -8,14 +8,15 @@ import {
 } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import Divide from "@/components/ui/divide"
 import { Field } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
 import { Radio, RadioGroup } from "@/components/ui/radio"
 import { ipSourceRules, roleNameRules, styleRules } from "@/utils/rules"
-import ExtraInfoForm, { type ExtraInfoValues } from "./ExtraInfoForm"
+import ExtraInfoForm from "../../../components/create-agent/ExtraInfoForm"
+import { useSelfAgent } from "@/contexts/SelfAgentContext"
 
 export const Route = createFileRoute("/create-agent/_layout/ip")({
   component: RouteComponent,
@@ -28,18 +29,18 @@ export interface CreateAgentForm {
 }
 
 function RouteComponent() {
-  // 子表单（额外信息）数据
-  const [extraValues, setExtraValues] = useState<ExtraInfoValues>({
-    relationWithUser: "",
-    publicInfo: "",
-    openingLine: "",
-  })
+  const { state, dispatch } = useSelfAgent()
+
+  // 设置模式为 ip
+  useEffect(() => {
+    dispatch({ type: "SET_MODE", payload: "ip" })
+  }, [dispatch])
   // 父表单最近一次成功提交的快照（角色生成）
   const [lastParentSubmitted, setLastParentSubmitted] =
     useState<CreateAgentForm | null>(null)
   // 父+子最近一次成功提交的快照（创建智能体）
   const [lastAllSubmitted, setLastAllSubmitted] = useState<
-    (CreateAgentForm & ExtraInfoValues) | null
+    (CreateAgentForm & typeof state.extraData) | null
   >(null)
 
   const {
@@ -51,15 +52,20 @@ function RouteComponent() {
   } = useForm<CreateAgentForm>({
     mode: "onBlur",
     criteriaMode: "all",
-    defaultValues: {
-      ipSource: "",
-      roleName: "",
-      style: "",
-    },
+    defaultValues: state.ipFormData,
   })
 
   // 当前父表单值
   const current = watch()
+
+  // 同步父表单到上下文
+  useEffect(() => {
+    const subscription = watch((v) => {
+      const values = v as unknown as CreateAgentForm
+      dispatch({ type: "SET_IP_FORM", payload: values })
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, dispatch])
   const filled =
     current.ipSource.trim().length > 0 &&
     current.roleName.trim().length > 0 &&
@@ -69,13 +75,15 @@ function RouteComponent() {
   const changedParentSinceSubmit = lastParentSubmitted
     ? JSON.stringify(current) !== JSON.stringify(lastParentSubmitted)
     : true
-  const mergedCurrent = { ...current, ...extraValues }
+  const mergedCurrent = { ...current, ...state.extraData }
   const changedAllSinceSubmit = lastAllSubmitted
     ? JSON.stringify(mergedCurrent) !== JSON.stringify(lastAllSubmitted)
     : true
 
   const canSubmitGenerate = Boolean(filled && changedParentSinceSubmit)
-  const canSubmitCreate = Boolean(filled && changedAllSinceSubmit)
+  const canSubmitCreate = Boolean(
+    filled && changedAllSinceSubmit && state.isExtraFormValid
+  )
 
   // 提交处理（此处为占位，后续可接入后端/下一步）
   // 角色生成：仅父表单数据
@@ -83,13 +91,14 @@ function RouteComponent() {
     if (!canSubmitGenerate) return
     // eslint-disable-next-line no-console
     console.log({ ...data })
+    dispatch({ type: "SET_IP_FORM", payload: data })
     setLastParentSubmitted({ ...data })
   }
 
   // 创建智能体：父+子数据
   const onCreateAgent = (data: CreateAgentForm) => {
     if (!canSubmitCreate) return
-    const payload = { ...data, ...extraValues }
+    const payload = { ...data, ...state.extraData }
     // eslint-disable-next-line no-console
     console.log(payload)
     setLastAllSubmitted(payload)
@@ -136,7 +145,7 @@ function RouteComponent() {
           color={"fg.muted"}
           fontSize={"xs"}
         >
-          可以在右上角"风格选择"处选择绘图风格
+          可以在右上角"绘图风格选择"处选择绘图风格
         </Text>
       </Flex>
 
@@ -193,7 +202,7 @@ function RouteComponent() {
           </Field>
 
           <Field
-            label="风格选择"
+            label="绘图风格选择"
             required
             invalid={!!errors.style}
             errorText={errors.style?.message}
@@ -241,12 +250,7 @@ function RouteComponent() {
           padding={4}
           boxShadow="sm"
         >
-          <ExtraInfoForm
-            mode="ip"
-            onChange={(values: ExtraInfoValues) => {
-              setExtraValues(values)
-            }}
-          />
+          <ExtraInfoForm mode="ip" />
 
           <Center w={"full"}>
             <Button

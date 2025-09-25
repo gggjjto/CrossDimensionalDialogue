@@ -1,5 +1,6 @@
 import { Flex } from "@chakra-ui/react"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { SelfAgentProvider } from "@/contexts/SelfAgentContext"
 
 export const Route = createFileRoute("/create-agent/_layout")({
   component: RouteComponent,
@@ -17,15 +18,17 @@ export const Route = createFileRoute("/create-agent/_layout")({
 
 function RouteComponent() {
   return (
-    <Flex
-      h={"100vh"}
-      w={"full"}
-      alignItems={"center"}
-      justifyContent={"center"}
-      px={4}
-      bg={"bg.muted"}
-    >
-      <Outlet />
-    </Flex>
+    <SelfAgentProvider>
+      <Flex
+        h={"100vh"}
+        w={"full"}
+        alignItems={"center"}
+        justifyContent={"center"}
+        px={4}
+        bg={"bg.muted"}
+      >
+        <Outlet />
+      </Flex>
+    </SelfAgentProvider>
   )
 }

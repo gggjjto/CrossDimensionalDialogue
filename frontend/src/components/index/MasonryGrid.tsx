@@ -44,11 +44,17 @@ export default function MasonryGrid<T>(props: MasonryGridProps<T>) {
 
   return (
     <InfiniteScroll
+      // 数据总数
       dataLength={items.length}
+      // 触发加载更多
       next={onLoadMore}
+      // 是否还有更多数据
       hasMore={hasMore}
+      // 自定义加载中提示
       loader={loader}
+      // 自定义结束提示
       endMessage={endMessage}
+      // 滚动容器 ID（非 window 滚动时需要）
       scrollableTarget={scrollableTarget}
       // 使用内联样式禁用默认容器的 overflow，避免影响外层布局
       style={{ overflow: "visible" }}
