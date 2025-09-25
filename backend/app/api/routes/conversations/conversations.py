@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 from app.crud.conversation import (
     conversation,
     message,
-    conversation_context,
-    conversation_tag,
     user_conversation_limit,
 )
 from app.models.user import User
@@ -28,20 +26,11 @@ from app.schemas.conversation import (
     ConversationListResponse,
     ConversationSearchRequest,
     MessageCreate,
-    MessageUpdate,
     MessagePublic,
     MessageListResponse,
-    MessageSearchRequest,
-    MessageSearchResponse,
-    ConversationStats,
-    ConversationStatsResponse,
-    ConversationExportRequest,
-    ConversationExportResponse,
     SenderType,
     ContentType,
-    MessageStatus,
 )
-from app.utils.response import success_response, error_response
 from app.models.conversation import ConversationStatus
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
