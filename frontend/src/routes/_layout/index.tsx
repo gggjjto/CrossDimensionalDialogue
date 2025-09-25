@@ -1,5 +1,5 @@
 import { Box, Input, Text, Image, HStack, Stack } from "@chakra-ui/react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { CiSearch } from "react-icons/ci"
 import { BsChatDots, BsHeart } from "react-icons/bs"
@@ -22,6 +22,7 @@ interface ItemCardProps {
 
 function ItemCard(props: ItemCardProps) {
   const [isHoverImage, setIsHoverImage] = useState(false)
+  const navigate = useNavigate()
 
   const { title, author, comments, likes, src } = props
   return (
@@ -34,6 +35,7 @@ function ItemCard(props: ItemCardProps) {
       cursor={"pointer"}
       onMouseEnter={() => setIsHoverImage(true)}
       onMouseLeave={() => setIsHoverImage(false)}
+      onClick={() => navigate({ to: "/$id", params: { id: "123" } })}
     >
       {/* 背景图片 */}
       <Image
