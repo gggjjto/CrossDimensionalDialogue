@@ -4,7 +4,7 @@ from typing import Any
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.crud import user as crud_user
+from app.crud import user as crud_user, character as crud_character
 from app.models import (
     Item,
     Message,
@@ -111,10 +111,27 @@ def update_password_me(
 
 
 @router.get("/me", response_model=UserPublic)
-def read_user_me(current_user: CurrentUser) -> Any:
+def read_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
     获取当前用户信息。
     """
+    # 动态更新统计字段
+    character_count = crud_character.get_user_character_count(
+        session, user_id=current_user.id
+    )
+    conversation_count = crud_user.get_user_conversation_count(
+        session, user_id=current_user.id
+    )
+
+    # 更新用户对象的统计字段
+    current_user.character_count = character_count
+    current_user.conversation_count = conversation_count
+
+    # 保存到数据库
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+
     return current_user
 
 
