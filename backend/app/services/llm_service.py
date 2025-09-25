@@ -11,6 +11,9 @@ from app.models.conversation import Conversation, Message
 from app.models.conversation import SenderType
 from app.crud.conversation import message as message_crud
 from app.core.config import settings
+from app.schemas.character import CharacterGenerateRequest, CharacterGenerateResponse
+import json
+import re
 logger = logging.getLogger(__name__)
 
 
@@ -157,6 +160,116 @@ class LLMService:
         )
         return "\n".join(prompt_parts)
 
+
+    def generate_character_profile(self, request: CharacterGenerateRequest, temperature: float = 0.7, max_tokens: int = 2000) -> CharacterGenerateResponse:
+        """
+        生成角色简介
+        """
+        try:
+            system_prompt = self._build_character_generation_system_prompt()
+            user_prompt = self._build_character_generation_user_prompt(request)
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            response = Generation.call(
+                model="qwen-plus",
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=0.9,
+            )
+
+            content = response.output.text
+            parsed_result = self._parse_character_generation_response(content, request)
+
+            return parsed_result
+        
+        except Exception as e:
+            logger.error(f"生成角色简介失败: {str(e)}")
+            return None
+
+    def _build_character_generation_system_prompt(self) -> str:
+        """构建角色生成系统提示词"""
+        return f"""你是一个专业的角色设定生成器。请根据用户提供的信息，生成一个完整、详细、有趣的角色设定。
+请按照以下JSON格式输出结果：
+{
+    "name": "角色名称",
+    "short_bio": "角色简介（50-100字）",
+    "persona_text": "详细人格设定（200-300字）",
+    "example_lines": ["示例对话1", "示例对话2", "示例对话3"],
+    "suggested_voice": "推荐音色",
+    "character_analysis": "角色分析（100-150字）"
+}
+示例1：
+{
+    "name": "花木兰",
+    "short_bio": "中国古代传奇女英雄，代父从军",
+    "persona_text": "我是花木兰，我代父从军，忠诚与勇敢是我的信念。我珍视友情，也有自己的爱情故事。",
+    "example_lines": ["巾帼不让须眉", "忠孝两全是我的追求"],
+    "suggested_voice": "Ethan",
+}
+示例2：
+{
+    "name": "孙悟空",
+    "short_bio": "中国古代神话中的传奇人物，齐天大圣",
+    "persona_text": "我是孙悟空，我机智勇敢，喜欢恶作剧，但也有一颗正义的心。",
+    "example_lines": ["我是齐天大圣孙悟空", "我喜欢吃桃子"],
+    "suggested_voice": "Ryan",
+}
+
+要求：
+1. 角色设定要生动有趣，有独特的个性
+2. 示例对话要体现角色的性格特点
+3. 推荐音色要符合角色特征
+5. 所有文本都要用中文
+6. 音色有17种, 请从17种音色中选择一个, 分别是：
+"南京-老李"	"li"	"耐心的瑜伽老师"
+"四川-晴儿"	"Sunny"	"甜到你心里的川妹子"
+"北京-晓东"	"Dylan"	"北京胡同里长大的少年。"
+"上海-阿珍"	"Jada"	"沪上阿姐，风风火火"
+"墨讲师"	"Elias"	"严谨叙事，适合知识讲解。"
+"卡捷琳娜"	"Katerina"	"御姐音色，韵律回味十足。"
+"甜茶"	"Ryan"	"节奏拉满，戏感炸裂，真实与张力共舞。"
+"詹妮弗"	"Jennifer"	"品牌级、电影质感般美语女声。"
+"不吃鱼"	"Nofish"	"不会翘舌音的设计师。"
+"晨煦"	"Ethan"	"标准普通话，带部分北方口音。阳光、温暖、活力、朝气。"
+"芊悦"	"Cherry"	"阳光积极、亲切自然小姐姐。"
+"四川-程川"	"Eric"	"一个跳脱市井的四川成都男子。"
+"粤语-阿清"	"Kiki"	"甜美港风闺蜜"
+"粤语-阿强"	"Rocky"	"幽默风趣，在线陪聊"
+"天津-李彼得"	"Peter"	"相声捧哏风格"
+"闽南-阿杰"	"Roy"	"诙谐直爽、市井活泼的台湾哥仔形象。"
+"陕西-秦川"	"Marcus"	"面宽话短，心实声沉"
+7. 不要输出任何其他内容，只输出JSON格式
+"""
+
+    def _build_character_generation_user_prompt(self, request: CharacterGenerateRequest) -> str:
+        """构建角色生成用户提示词"""
+        prompt_parts = []
+        prompt_parts.append(f"请为以下角色生成详细设定：")
+        prompt_parts.append(f"角色名称：{request.name}")
+        prompt_parts.append(f"角色类型：{request.character_type}")
+        
+        if request.background:
+            prompt_parts.append(f"背景描述：{request.background}")
+        prompt_parts.append("\n请生成一个完整、有趣的角色设定。")
+        
+        return "\n".join(prompt_parts)
+
+        
+    def _parse_character_generation_response(self, content: str, request: CharacterGenerateRequest) -> CharacterGenerateResponse:
+        """解析LLM响应为结构化数据"""
+        # 尝试提取JSON部分
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            json_str = json_match.group()
+            data = json.loads(json_str)
+        else:
+            raise ValueError("无法解析，请联系管理员")
+
+        return CharacterGenerateResponse(**data)
 
 # 全局LLM服务实例
 llm_service = LLMService()

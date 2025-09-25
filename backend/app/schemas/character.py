@@ -6,7 +6,7 @@
 
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 
 from pydantic import BaseModel, Field
 from sqlmodel import SQLModel
@@ -119,3 +119,27 @@ class CharacterBatchResponse(SQLModel):
         default_factory=list, description="失败的角色ID"
     )
     message: str = Field(description="操作结果消息")
+
+
+# 角色生成请求模式
+class CharacterGenerateRequest(BaseModel):
+    """角色生成请求"""
+
+    name: str = Field(..., max_length=100, description="角色名称")
+    character_type: str = Field(
+        ..., max_length=50, description="角色类型，如：动漫角色、历史人物、原创角色等"
+    )
+    background: Optional[str] = Field(
+        default=None, max_length=1000, description="背景描述"
+    )
+
+
+# 角色生成响应模式
+class CharacterGenerateResponse(BaseModel):
+    """角色生成响应"""
+
+    name: str = Field(..., description="角色名称")
+    short_bio: str = Field(..., description="角色简介")
+    persona_text: str = Field(..., description="详细人格设定")
+    example_lines: List[str] = Field(..., description="示例对话")
+    suggested_voice: str = Field(..., description="推荐音色")
