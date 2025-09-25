@@ -70,7 +70,7 @@ async def get_available_voices(
         )
 
 
-@router.post("/upload-audio", response_model=VoiceUploadResponse)
+@router.post("/upload-audio")
 async def upload_audio_file(
     *,
     db: Session = Depends(get_db),
@@ -116,11 +116,14 @@ async def upload_audio_file(
                 file_type="voice_message",
             )
 
-            return VoiceUploadResponse(
-                success=True,
-                audio_url=upload_result.get("url", ""),
-                filename=filename,
-                file_size=len(file_content),
+            return success_response(
+                data={
+                    "success": True,
+                    "audio_url": upload_result.get("url", ""),
+                    "filename": filename,
+                    "file_size": len(file_content),
+                },
+                msg="音频文件上传成功",
             )
 
         finally:
@@ -132,10 +135,10 @@ async def upload_audio_file(
         raise
     except Exception as e:
         logger.error(f"上传音频文件失败: {str(e)}")
-        return VoiceUploadResponse(success=False, error=f"上传音频文件失败: {str(e)}")
+        return error_response(msg=f"上传音频文件失败: {str(e)}")
 
 
-@router.post("/message", response_model=VoiceMessageResponse)
+@router.post("/message")
 async def process_voice_message(
     *,
     db: Session = Depends(get_db),
@@ -169,29 +172,32 @@ async def process_voice_message(
         )
 
         if result["success"]:
-            return VoiceMessageResponse(
-                success=True,
-                user_message_id=(
-                    result["user_message"].id if result["user_message"] else None
-                ),
-                character_message_id=(
-                    result["character_message"].id
-                    if result["character_message"]
-                    else None
-                ),
-                text_response=result["text_response"],
-                audio_response_url=result["audio_response_url"],
-                voice_used=result["voice_used"],
-                stt_text=result["stt_text"],
+            return success_response(
+                data={
+                    "success": True,
+                    "user_message_id": (
+                        result["user_message"].id if result["user_message"] else None
+                    ),
+                    "character_message_id": (
+                        result["character_message"].id
+                        if result["character_message"]
+                        else None
+                    ),
+                    "text_response": result["text_response"],
+                    "audio_response_url": result["audio_response_url"],
+                    "voice_used": result["voice_used"],
+                    "stt_text": result["stt_text"],
+                },
+                msg="语音消息处理成功",
             )
         else:
-            return VoiceMessageResponse(success=False, error=result["error"])
+            return error_response(msg=result["error"])
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"处理语音消息失败: {str(e)}")
-        return VoiceMessageResponse(success=False, error=f"处理语音消息失败: {str(e)}")
+        return error_response(msg=f"处理语音消息失败: {str(e)}")
 
 
 @router.post("/tts")
