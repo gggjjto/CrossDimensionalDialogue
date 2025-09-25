@@ -18,6 +18,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as CreateAgentIndexRouteImport } from './routes/create-agent/index'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as IdIndexRouteImport } from './routes/$id/index'
 import { Route as CreateAgentLayoutRouteImport } from './routes/create-agent/_layout'
 import { Route as CreateAgentLayoutSelfRouteImport } from './routes/create-agent/_layout/self'
 import { Route as CreateAgentLayoutIpRouteImport } from './routes/create-agent/_layout/ip'
@@ -63,6 +64,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const IdIndexRoute = IdIndexRouteImport.update({
+  id: '/$id/',
+  path: '/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreateAgentLayoutRoute = CreateAgentLayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => CreateAgentRoute,
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/create-agent': typeof CreateAgentLayoutRouteWithChildren
+  '/$id': typeof IdIndexRoute
   '/': typeof LayoutIndexRoute
   '/create-agent/': typeof CreateAgentIndexRoute
   '/create-agent/ip': typeof CreateAgentLayoutIpRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/create-agent': typeof CreateAgentIndexRoute
+  '/$id': typeof IdIndexRoute
   '/': typeof LayoutIndexRoute
   '/create-agent/ip': typeof CreateAgentLayoutIpRoute
   '/create-agent/self': typeof CreateAgentLayoutSelfRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/create-agent': typeof CreateAgentRouteWithChildren
   '/create-agent/_layout': typeof CreateAgentLayoutRouteWithChildren
+  '/$id/': typeof IdIndexRoute
   '/_layout/': typeof LayoutIndexRoute
   '/create-agent/': typeof CreateAgentIndexRoute
   '/create-agent/_layout/ip': typeof CreateAgentLayoutIpRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/create-agent'
+    | '/$id'
     | '/'
     | '/create-agent/'
     | '/create-agent/ip'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/create-agent'
+    | '/$id'
     | '/'
     | '/create-agent/ip'
     | '/create-agent/self'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/create-agent'
     | '/create-agent/_layout'
+    | '/$id/'
     | '/_layout/'
     | '/create-agent/'
     | '/create-agent/_layout/ip'
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   CreateAgentRoute: typeof CreateAgentRouteWithChildren
+  IdIndexRoute: typeof IdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -216,6 +229,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/$id/': {
+      id: '/$id/'
+      path: '/$id'
+      fullPath: '/$id'
+      preLoaderRoute: typeof IdIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/create-agent/_layout': {
       id: '/create-agent/_layout'
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   CreateAgentRoute: CreateAgentRouteWithChildren,
+  IdIndexRoute: IdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
