@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8,11 +7,12 @@ import emails  # type: ignore
 import jwt
 from app.core import security
 from app.core.config import settings
+from app.core.logger import get_logger
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
-from app.core.logger import logger
 
-logger = logging.getLogger("email")
+logger = get_logger("email")
+
 
 @dataclass
 class EmailData:

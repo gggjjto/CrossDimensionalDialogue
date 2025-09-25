@@ -23,10 +23,6 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
-uvicorn_logger = get_logger("uvicorn", logging.INFO)
-logging.getLogger("uvicorn").handlers = uvicorn_logger.handlers
-logging.getLogger("uvicorn.access").handlers = uvicorn_logger.handlers
-
 
 # Set all CORS enabled origins
 if settings.all_cors_origins:
