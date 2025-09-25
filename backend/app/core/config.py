@@ -17,6 +17,8 @@ from typing_extensions import Self
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
+
+
 def parse_cors(v: Any) -> list[str] | str:
     if isinstance(v, str) and not v.startswith("["):
         return [i.strip() for i in v.split(",")]
@@ -93,24 +95,46 @@ class Settings(BaseSettings):
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr = "test@example.com"
+    FIRST_SUPERUSER: EmailStr = "admin@example.com"
     FIRST_SUPERUSER_PASSWORD: str = ""
 
-    # 嵌入模型配置
-    EMBEDDING_PROVIDER: Literal["openai", "aliyun", "local"] = "aliyun"
+    # AI模型配置
+    LLM_PROVIDER: str = "qwen"
+    # DeepSeek 配置
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
 
-    # OpenAI 配置
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-3.5-turbo"
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # 通义千问配置
+    QWEN_API_KEY: str = ""
+    # 文生文
+    QWEN_CHAT_MODEL: str = "qwen-turbo"
+    # 文生图
+    QWEN_IMAGE_MODEL: str = "wan2.2-t2i-flash"
+    # 向量嵌入
+    QWEN_EMBEDDING_MODEL: str = "text-embedding-v4"
 
-    # 阿里云配置
-    ALIYUN_API_KEY: str = ""
-    ALIYUN_EMBEDDING_MODEL: str = "text-embedding-v4"
+    # 音频存储配置
+    AUDIO_STORAGE_PATH: str = "data/audio_files"
+    MAX_AUDIO_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
 
-    # 本地模型配置（可选）
-    LOCAL_EMBEDDING_MODEL_PATH: str = ""
-    LOCAL_EMBEDDING_DEVICE: str = "cpu"
+    # 七牛云存储配置
+    QINIU_ACCESS_KEY: str = ""
+    QINIU_SECRET_KEY: str = ""
+    QINIU_BUCKET_NAME: str = ""
+    QINIU_DOMAIN: str = ""  # 七牛云存储空间绑定的域名
+    QINIU_USE_HTTPS: bool = False
+    QINIU_CDN_DOMAIN: str = ""  # CDN加速域名（可选）
+
+    # 最大会话数量限制
+    MAX_CONVERSATIONS_LIMIT: int = 10
+
+    # 语音转文本(STT)配置
+    STT_ENGINE: Literal["openai", "azure", "google", "whisper"] = "whisper"
+    WHISPER_MODEL_SIZE: str = "base"  # tiny, base, small, medium, large
+
+    # 文本转语音(TTS)配置
+    TTS_ENGINE: Literal["openai", "azure", "google", "elevenlabs", "local"] = "openai"
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

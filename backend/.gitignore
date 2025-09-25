@@ -6,3 +6,6 @@ app.egg-info
 htmlcov
 .cache
 .venv
+data/audio_files/
+.pytest_cache/
+.ruff_cache/

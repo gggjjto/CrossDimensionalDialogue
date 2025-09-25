@@ -4,6 +4,6 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
-
-# cursor 配置文件
-.cursor/*
+./cursor/*
+./cursor/rules/*
+.env
