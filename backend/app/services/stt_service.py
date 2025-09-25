@@ -1,14 +1,14 @@
 """
-Qwen3-ASR 录音文件识别服务（简化版，风格对齐 llm_service）。
+Qwen3-ASR 语音识别服务（使用DashScope SDK）。
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, Dict, List, Optional
 
-import httpx
+import dashscope
+from dashscope import MultiModalConversation
 
 from app.core.config import settings
 
@@ -22,16 +22,18 @@ class STTRequest:
     def __init__(
         self,
         audio_url: str,
-        model: Optional[str] = None,
+        model: Optional[str] = 'qwen3-asr-flash',
         prompt: Optional[str] = None,
-        response_format: str = "json",
-        temperature: Optional[float] = None,
+        language: Optional[str] = 'zh',
+        enable_lid: bool = True,
+        enable_itn: bool = False,
     ) -> None:
         self.audio_url = audio_url
-        self.model = model or "qwen3-asr-flash"
+        self.model = model
         self.prompt = prompt
-        self.response_format = response_format
-        self.temperature = temperature
+        self.language = language
+        self.enable_lid = enable_lid
+        self.enable_itn = enable_itn
 
 
 class STTResponse:
@@ -61,121 +63,159 @@ class STTService:
         self.api_key = settings.QWEN_API_KEY
         if not self.api_key:
             logger.warning("QWEN_API_KEY 未配置，ASR 请求将失败")
+        else:
+            dashscope.api_key = self.api_key
         self.model_default = "qwen3-asr-flash"
-        self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        self.endpoint = f"{self.base_url}/audio/transcriptions"
-        self.timeout = 120.0
 
     async def transcribe(self, req: STTRequest) -> STTResponse:
+        """
+        语音转文本识别
+
+        Args:
+            req: STT请求对象
+
+        Returns:
+            STTResponse: 识别结果
+
+        Raises:
+            ValueError: 当音频URL无效或API调用失败时
+        """
         if not req.audio_url or not req.audio_url.startswith("http"):
             raise ValueError("audio_url 必须是公网可访问的 URL")
 
         model = req.model or self.model_default
 
-        payload: Dict[str, Any] = {
-            "model": model,
-            "audio_url": req.audio_url,
-        }
-        if req.prompt:
-            payload["prompt"] = req.prompt
-        if req.response_format:
-            payload["response_format"] = req.response_format
-        if req.temperature is not None:
-            payload["temperature"] = req.temperature
-
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(self.endpoint, headers=headers, json=payload)
-
-        if resp.status_code >= 400:
-            self._raise_http_error(resp)
-
-        data = self._safe_json(resp)
-        text, language, duration, words = self._extract_result_fields(data)
-        return STTResponse(
-            text=text,
-            model=model,
-            language=language,
-            duration_sec=duration,
-            words=words,
-            raw=data,
-        )
-
-    @staticmethod
-    def _safe_json(resp: httpx.Response) -> Dict[str, Any]:
         try:
-            return resp.json()
-        except json.JSONDecodeError:
-            return {"raw": resp.text}
+            logger.info(f"开始ASR识别: 音频URL='{req.audio_url}', 模型='{model}'")
 
-    @staticmethod
-    def _raise_http_error(resp: httpx.Response) -> None:
-        try:
-            data = resp.json()
-            message = (
-                data.get("error", {}).get("message")
-                or data.get("message")
-                or data.get("detail")
+            # 构建消息格式
+            messages = [
+                {
+                    "role": "system",
+                    "content": [{"text": req.prompt or ""}],  # 系统提示词
+                },
+                {"role": "user", "content": [{"audio": req.audio_url}]},  # 音频URL
+            ]
+
+            # 构建ASR选项
+            asr_options = {
+                "enable_lid": req.enable_lid,
+                "enable_itn": req.enable_itn,
+            }
+            if req.language:
+                asr_options["language"] = req.language
+
+            # 调用DashScope SDK
+            response = MultiModalConversation.call(
+                api_key=self.api_key,
+                model=model,
+                messages=messages,
+                result_format="message",
+                asr_options=asr_options,
             )
-        except Exception:
-            message = resp.text
-        raise httpx.HTTPStatusError(
-            f"ASR 请求失败: {resp.status_code} - {message}",
-            request=resp.request,
-            response=resp,
-        )
+
+            logger.info(f"ASR API调用成功，响应类型: {type(response)}")
+
+            # 检查API调用是否成功
+            if hasattr(response, "status_code") and response.status_code != 200:
+                error_msg = f"ASR API调用失败: {response.status_code}"
+                if hasattr(response, "message"):
+                    error_msg += f" - {response.message}"
+                if hasattr(response, "code"):
+                    error_msg += f" (错误码: {response.code})"
+                logger.error(f"ASR API错误: {error_msg}")
+                raise ValueError(error_msg)
+
+            # 处理响应
+            text, language, duration, words = self._extract_result_fields(response)
+
+            logger.info(f"ASR识别完成: 文本长度={len(text)}, 语言={language}")
+
+            return STTResponse(
+                text=text,
+                model=model,
+                language=language,
+                duration_sec=duration,
+                words=words,
+                raw=response.__dict__ if hasattr(response, "__dict__") else {},
+            )
+
+        except Exception as e:
+            logger.error(f"ASR识别失败: {str(e)}")
+            raise ValueError(f"ASR识别失败: {str(e)}")
 
     @staticmethod
     def _extract_result_fields(
-        data: Dict[str, Any],
+        response: Any,
     ) -> tuple[str, Optional[str], Optional[float], Optional[List[Dict[str, Any]]]]:
         """
-        按固定返回结构提取核心字段，不做其他格式适配。
+        从DashScope SDK响应中提取核心字段
         """
-        output = data.get("output") or {}
-        usage = data.get("usage") or {}
+        text = ""
+        language = None
+        duration = None
+        words = None
 
-        # 文本：拼接 choices[0].message.content[].text
-        text: str = ""
-        choices = output.get("choices") or []
-        if isinstance(choices, list) and choices:
-            first = choices[0] or {}
-            message = first.get("message") or {}
-            content = message.get("content") or []
-            if isinstance(content, list):
-                parts: List[str] = []
-                for part in content:
-                    if isinstance(part, dict) and isinstance(part.get("text"), str):
-                        parts.append(part["text"])
-                    elif isinstance(part, str):
-                        parts.append(part)
-                text = "".join(parts).strip()
+        try:
+            # 检查响应结构
+            if not hasattr(response, "output") or response.output is None:
+                logger.error(f"ASR响应格式错误：缺少output字段，响应: {response}")
+                return text, language, duration, words
 
-        # 语言：choices[0].message.annotations[*].language
-        language: Optional[str] = None
-        if isinstance(choices, list) and choices:
-            msg = (choices[0] or {}).get("message") or {}
-            annotations = msg.get("annotations") or []
-            if isinstance(annotations, list) and annotations:
-                lang = annotations[0].get("language")
-                if isinstance(lang, str):
-                    language = lang
+            output = response.output
 
-        # 时长：usage.seconds
-        duration: Optional[float] = None
-        seconds = usage.get("seconds")
-        if isinstance(seconds, (int, float)):
-            duration = float(seconds)
+            # 提取文本内容
+            if hasattr(output, "choices") and output.choices:
+                choices = output.choices
+                if isinstance(choices, list) and len(choices) > 0:
+                    first_choice = choices[0]
+                    if hasattr(first_choice, "message") and first_choice.message:
+                        message = first_choice.message
+                        if hasattr(message, "content") and message.content:
+                            content = message.content
+                            if isinstance(content, list):
+                                text_parts = []
+                                for part in content:
+                                    if isinstance(part, dict) and "text" in part:
+                                        text_parts.append(part["text"])
+                                    elif isinstance(part, str):
+                                        text_parts.append(part)
+                                text = "".join(text_parts).strip()
+                            elif isinstance(content, str):
+                                text = content.strip()
 
-        # 词级：本结构未提供
-        words: Optional[List[Dict[str, Any]]] = None
+            # 提取语言信息
+            if hasattr(output, "choices") and output.choices:
+                choices = output.choices
+                if isinstance(choices, list) and len(choices) > 0:
+                    first_choice = choices[0]
+                    if hasattr(first_choice, "message") and first_choice.message:
+                        message = first_choice.message
+                        if hasattr(message, "annotations") and message.annotations:
+                            annotations = message.annotations
+                            if isinstance(annotations, list) and len(annotations) > 0:
+                                first_annotation = annotations[0]
+                                if (
+                                    isinstance(first_annotation, dict)
+                                    and "language" in first_annotation
+                                ):
+                                    language = first_annotation["language"]
+
+            # 提取时长信息
+            if hasattr(response, "usage") and response.usage:
+                usage = response.usage
+                if hasattr(usage, "seconds"):
+                    duration = float(usage.seconds)
+                elif isinstance(usage, dict) and "seconds" in usage:
+                    duration = float(usage["seconds"])
+
+            logger.debug(f"提取结果: 文本='{text}', 语言={language}, 时长={duration}")
+
+        except Exception as e:
+            logger.error(f"提取ASR结果字段失败: {str(e)}")
 
         return text, language, duration, words
 
 
-# 全局实例，风格与 llm_service.py 对齐
+# 全局实例
 stt_service = STTService()
