@@ -5,15 +5,16 @@
 """
 
 import io
-import logging
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 import httpx
-from PIL import Image
+from app.core.config import settings
+from app.core.logger import get_logger
 from app.models.character import Character
 from app.services.image_service import QwenImageProvider
-from app.core.config import settings
-logger = logging.getLogger(__name__)
+from PIL import Image
+
+logger = get_logger("character_image_service")
 
 
 class CharacterImageService:
@@ -58,8 +59,14 @@ class CharacterImageService:
         except Exception as e:
             logger.error(f"生成角色形象图片时发生错误: {str(e)}")
             return None
-    
-    async def generate_character_image_with_prompt(self, prompt: str, size: str = "720*1280", style: str = "realistic", quality: str = "standard") -> Optional[bytes]:
+
+    async def generate_character_image_with_prompt(
+        self,
+        prompt: str,
+        size: str = "720*1280",
+        style: str = "realistic",
+        quality: str = "standard",
+    ) -> Optional[bytes]:
         """
         使用提示词生成角色形象图片
 
@@ -169,8 +176,10 @@ class CharacterImageService:
             "cartoon": "卡通风格",
             "artistic": "艺术风格",
         }
+
     def get_supported_sizes(self) -> Dict[str, str]:
         return {s: s for s in self.provider.get_supported_sizes()}
+
 
 # 全局服务实例
 character_image_service = CharacterImageService()

@@ -15,6 +15,7 @@ from qiniu import Auth, BucketManager, CdnManager, put_data, put_file
 from qiniu.http import ResponseInfo
 
 from app.core.config import settings
+from app.core.logger import logger
 
 
 class QiniuStorageError(Exception):
@@ -36,6 +37,7 @@ class QiniuStorageClient:
                 settings.QINIU_DOMAIN,
             ]
         ):
+            logger.error("七牛云配置不完整，请检查环境变量")
             raise QiniuStorageError("七牛云配置不完整，请检查环境变量")
 
         self.auth = Auth(settings.QINIU_ACCESS_KEY, settings.QINIU_SECRET_KEY)

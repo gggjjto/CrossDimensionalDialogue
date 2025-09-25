@@ -5,22 +5,21 @@
 """
 
 import asyncio
-import logging
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlmodel import Session, select, text
 import dashscope
-
 from app.core.config import settings
+from app.core.logger import get_logger
 from app.models.character import (
     Character,
     CharacterEmbedding,
     CharacterEmbeddingCreate,
     CharacterEmbeddingPublic,
 )
+from sqlmodel import Session, select, text
 
-logger = logging.getLogger(__name__)
+logger = get_logger("embedding_service")
 
 
 class EmbeddingService:
@@ -29,12 +28,15 @@ class EmbeddingService:
     def __init__(self):
         dashscope.api_key = settings.QWEN_API_KEY
         self.model_name = settings.QWEN_EMBEDDING_MODEL
-        # 通义千问 embedding 维度固定：text-embedding-v1 是 1536
-        self.dimension = 1536  
+        self.dimension = 1536
 
     def get_model_info(self) -> Dict[str, Any]:
         """获取当前使用的模型信息"""
-        return {"provider": "qwen", "model_name": self.model_name, "dimension": self.dimension}
+        return {
+            "provider": "qwen",
+            "model_name": self.model_name,
+            "dimension": self.dimension,
+        }
 
     async def generate_embedding(self, text: str) -> List[float]:
         """生成文本的向量嵌入"""
@@ -45,7 +47,7 @@ class EmbeddingService:
             )
             return rsp["output"]["embeddings"][0]["embedding"]
         except Exception as e:
-            logger.error(f"生成向量嵌入失败: {str(e)}")
+            logger.error("生成向量嵌入失败: %s", str(e))
             raise
 
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
@@ -57,7 +59,7 @@ class EmbeddingService:
             )
             return [item["embedding"] for item in rsp["output"]["embeddings"]]
         except Exception as e:
-            logger.error(f"批量生成向量嵌入失败: {str(e)}")
+            logger.error("批量生成向量嵌入失败: %s", str(e))
             raise
 
     async def generate_character_embeddings(
@@ -87,7 +89,9 @@ class EmbeddingService:
         )
 
         # combined
-        combined_text = f"{character.name} {character.short_bio} {character.persona_text}"
+        combined_text = (
+            f"{character.name} {character.short_bio} {character.persona_text}"
+        )
         if character.example_lines:
             combined_text += " " + " ".join(character.example_lines)
 
@@ -102,7 +106,9 @@ class EmbeddingService:
 
         # 保存
         for emb_data in [persona_emb, bio_emb, combined_emb]:
-            await self._delete_character_embeddings(session, character.id, emb_data.embedding_type)
+            await self._delete_character_embeddings(
+                session, character.id, emb_data.embedding_type
+            )
             emb = CharacterEmbedding(**emb_data.model_dump())
             session.add(emb)
             session.commit()
@@ -189,7 +195,10 @@ class EmbeddingService:
     ) -> Dict[UUID, List[CharacterEmbeddingPublic]]:
         """批量生成角色向量嵌入"""
         results = {}
-        tasks = [self.generate_character_embeddings(character, session) for character in characters]
+        tasks = [
+            self.generate_character_embeddings(character, session)
+            for character in characters
+        ]
         embeddings_list = await asyncio.gather(*tasks)
         for character, embeddings in zip(characters, embeddings_list):
             results[character.id] = embeddings

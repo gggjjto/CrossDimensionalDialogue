@@ -10,10 +10,9 @@ from app.core import security
 from app.core.config import settings
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
+from app.core.logger import logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+logger = logging.getLogger("email")
 
 @dataclass
 class EmailData:
@@ -53,7 +52,7 @@ def send_email(
     if settings.SMTP_PASSWORD:
         smtp_options["password"] = settings.SMTP_PASSWORD
     response = message.send(to=email_to, smtp=smtp_options)
-    logger.info(f"send email result: {response}")
+    logger.info("发送邮件结果: %s", response)
 
 
 def generate_test_email(email_to: str) -> EmailData:

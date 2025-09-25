@@ -1,28 +1,26 @@
 import uuid
 from typing import List, Optional
 
+from app.api.deps import get_current_active_superuser, get_current_user, get_db
+from app.core.logger import get_logger
+from app.crud.character import character, character_tag
+from app.crud.character_embedding import character_embedding_crud
+from app.models.character import (
+    CharacterCreate,
+    CharacterSearchRequest,
+    CharacterTagCreate,
+    CharacterTagUpdate,
+    CharacterUpdate,
+)
+from app.models.user import User
+from app.services.character_image_service import character_image_service
+from app.services.embedding_service import embedding_service
+from app.services.qiniu_storage_service import QiniuStorageService
+from app.utils.response import success_response
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
-from app.api.deps import get_db, get_current_active_superuser, get_current_user
-from app.crud.character import character, character_tag
-from app.crud.character_embedding import character_embedding_crud
-from app.services.embedding_service import embedding_service
-from app.services.character_image_service import character_image_service
-from app.services.qiniu_storage_service import QiniuStorageService
-from app.models.character import (
-    CharacterCreate,
-    CharacterUpdate,
-    CharacterTagCreate,
-    CharacterTagUpdate,
-    CharacterSearchRequest,
-)
-from app.models.user import User
-from app.utils.response import success_response
-import logging
-
-logger = logging.getLogger(__name__)
-
+logger = get_logger("characters_api")
 router = APIRouter(prefix="/characters", tags=["characters"])
 
 
@@ -41,6 +39,7 @@ async def create_character(
     # 检查角色名称是否已存在
     existing_character = character.get_by_name(db, name=character_in.name)
     if existing_character:
+        logger.warning("用户 %s 创建的角色名称 %s 已存在", current_user.email, character_in.name)
         raise HTTPException(status_code=400, detail="角色名称已存在")
 
     # 验证标签ID是否存在
@@ -57,10 +56,7 @@ async def create_character(
         await embedding_service.generate_character_embeddings(character_obj, db)
     except Exception as e:
         # 记录错误但不影响角色创建
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.warning(f"生成角色向量嵌入失败: {str(e)}")
+        logger.warning("生成角色向量嵌入失败: %s", str(e))
 
     # 如果启用AI图片生成且没有提供头像URL，则生成AI形象图片
     if character_obj.auto_generate_image and not character_obj.avatar_url:
@@ -82,7 +78,7 @@ async def create_character(
                 db.commit()
                 db.refresh(character_obj)
         except Exception as e:
-            logger.warning(f"生成角色AI形象图片失败: {str(e)}")
+            logger.warning("用户 %s 生成角色AI形象图片失败: %s", current_user.email, str(e))
 
     return success_response(data=character_obj.model_dump(), msg="角色创建成功")
 
@@ -127,6 +123,7 @@ async def search_characters(
             db, search_request, query_embedding
         )
     else:
+        logger.warning("不支持的搜索类型: %s", search_type)
         raise HTTPException(status_code=400, detail="不支持的搜索类型")
 
     return success_response(data=result.model_dump(), msg="搜索完成")
@@ -213,10 +210,12 @@ def read_public_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
+        logger.warning("角色ID %s 未找到", character_id)
         raise HTTPException(status_code=404, detail="角色未找到")
 
     # 检查角色是否公开
     if not character_obj.is_public:
+        logger.warning("角色ID %s 未公开", character_id)
         raise HTTPException(status_code=403, detail="该角色未公开")
 
     return success_response(data=character_obj.model_dump(), msg="获取角色详情成功")
@@ -236,10 +235,12 @@ def read_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
+        logger.warning("角色ID %s 未找到", character_id)
         raise HTTPException(status_code=404, detail="角色未找到")
 
     # 检查用户权限
     if character_obj.user_id != current_user.id:
+        logger.warning("用户 %s 无权访问角色ID %s", current_user.email, character_id)
         raise HTTPException(status_code=403, detail="无权访问此角色")
 
     return success_response(data=character_obj.model_dump(), msg="获取角色详情成功")
@@ -260,16 +261,19 @@ def update_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
+        logger.warning("角色ID %s 未找到", character_id)
         raise HTTPException(status_code=404, detail="角色未找到")
 
     # 检查用户权限
     if character_obj.user_id != current_user.id:
+        logger.warning("用户 %s 无权更新角色ID %s", current_user.email, character_id)
         raise HTTPException(status_code=403, detail="无权更新此角色")
 
     # 检查名称是否与其他角色冲突
     if character_in.name and character_in.name != character_obj.name:
         existing_character = character.get_by_name(db, name=character_in.name)
         if existing_character and existing_character.id != character_id:
+            logger.warning("角色名称 %s 已存在", character_in.name)
             raise HTTPException(status_code=400, detail="角色名称已存在")
 
     # 验证标签ID是否存在
@@ -277,6 +281,7 @@ def update_character(
         for tag_id in character_in.tag_ids:
             existing_tag = character_tag.get(db, id=tag_id)
             if not existing_tag:
+                logger.warning("标签ID %s 不存在", tag_id)
                 raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
     character_obj = character.update(db, db_obj=character_obj, obj_in=character_in)
@@ -297,10 +302,12 @@ def delete_character(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
+        logger.warning("角色ID %s 未找到", character_id)
         raise HTTPException(status_code=404, detail="角色未找到")
 
     # 检查用户权限
     if character_obj.user_id != current_user.id:
+        logger.warning("用户 %s 无权删除角色ID %s", current_user.email, character_id)
         raise HTTPException(status_code=403, detail="无权删除此角色")
 
     character_obj = character.delete(db, id=character_id)
@@ -323,6 +330,7 @@ def create_character_tag(
     # 检查标签名称是否已存在
     existing_tag = character_tag.get_by_name(db, name=tag_in.name)
     if existing_tag:
+        logger.warning("标签名称 %s 已存在", tag_in.name)
         raise HTTPException(status_code=400, detail="标签名称已存在")
 
     tag_obj = character_tag.create(db, obj_in=tag_in)
@@ -362,6 +370,7 @@ def read_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
+        logger.warning("标签ID %s 未找到", tag_id)
         raise HTTPException(status_code=404, detail="标签未找到")
     return success_response(data=tag_obj.model_dump(), msg="获取标签详情成功")
 
@@ -381,12 +390,14 @@ def update_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
+        logger.warning("标签ID %s 未找到", tag_id)
         raise HTTPException(status_code=404, detail="标签未找到")
 
     # 检查名称是否与其他标签冲突
     if tag_in.name and tag_in.name != tag_obj.name:
         existing_tag = character_tag.get_by_name(db, name=tag_in.name)
         if existing_tag and existing_tag.id != tag_id:
+            logger.warning("标签名称 %s 已存在", tag_in.name)
             raise HTTPException(status_code=400, detail="标签名称已存在")
 
     tag_obj = character_tag.update(db, db_obj=tag_obj, obj_in=tag_in)
@@ -407,12 +418,14 @@ def delete_character_tag(
     """
     tag_obj = character_tag.get(db, id=tag_id)
     if not tag_obj:
+        logger.warning("标签ID %s 未找到", tag_id)
         raise HTTPException(status_code=404, detail="标签未找到")
 
     try:
         tag_obj = character_tag.delete(db, id=tag_id)
         return success_response(data=tag_obj.model_dump(), msg="标签删除成功")
     except ValueError as e:
+        logger.warning("删除标签失败: %s", str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -435,6 +448,7 @@ async def generate_character_image(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
+        logger.warning("角色ID %s 未找到", character_id)
         raise HTTPException(status_code=404, detail="角色未找到")
 
     try:
@@ -464,9 +478,11 @@ async def generate_character_image(
                 msg="AI形象图片生成成功",
             )
         else:
+            logger.warning("AI形象图片生成失败")
             raise HTTPException(status_code=500, detail="AI形象图片生成失败")
 
     except Exception as e:
+        logger.warning("生成AI形象图片失败: %s", str(e))
         raise HTTPException(status_code=500, detail=f"生成AI形象图片失败: {str(e)}")
 
 
@@ -502,9 +518,11 @@ async def validate_character_image(
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
+        logger.warning("角色ID %s 未找到", character_id)
         raise HTTPException(status_code=404, detail="角色未找到")
 
     if not character_obj.avatar_url:
+        logger.warning("角色ID %s 没有头像图片", character_id)
         raise HTTPException(status_code=400, detail="角色没有头像图片")
 
     try:
@@ -521,4 +539,5 @@ async def validate_character_image(
             msg="图片验证完成",
         )
     except Exception as e:
+        logger.warning("验证图片失败: %s", str(e))
         raise HTTPException(status_code=500, detail=f"验证图片失败: {str(e)}")

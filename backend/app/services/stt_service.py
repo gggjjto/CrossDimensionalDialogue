@@ -4,29 +4,27 @@ Qwen3-ASR 语音识别服务（使用DashScope SDK）。
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List, Optional
 
 import dashscope
+from app.core.config import settings
+from app.core.logger import get_logger
 from dashscope import MultiModalConversation
 
-from app.core.config import settings
-
-
-logger = logging.getLogger(__name__)
+logger = get_logger("stt_service")
 
 
 class STTRequest:
-    """语音转文本请求。"""
+    """语音转文本请求"""
 
     def __init__(
         self,
         audio_url: str,
-        model: Optional[str] = 'qwen3-asr-flash',
+        model: Optional[str] = "qwen3-asr-flash",
         prompt: Optional[str] = None,
-        language: Optional[str] = 'zh',
-        enable_lid: bool = True,
-        enable_itn: bool = False,
+        language: Optional[str] = "zh",
+        enable_lid: bool = True, # 启用语言检测
+        enable_itn: bool = False, # 启用逆文本标准化
     ) -> None:
         self.audio_url = audio_url
         self.model = model
@@ -61,10 +59,6 @@ class STTService:
 
     def __init__(self) -> None:
         self.api_key = settings.QWEN_API_KEY
-        if not self.api_key:
-            logger.warning("QWEN_API_KEY 未配置，ASR 请求将失败")
-        else:
-            dashscope.api_key = self.api_key
         self.model_default = "qwen3-asr-flash"
 
     async def transcribe(self, req: STTRequest) -> STTResponse:
@@ -81,12 +75,13 @@ class STTService:
             ValueError: 当音频URL无效或API调用失败时
         """
         if not req.audio_url or not req.audio_url.startswith("http"):
-            raise ValueError("audio_url 必须是公网可访问的 URL")
+            logger.error("音频URL无效: %s", req.audio_url)
+            raise ValueError("audio_url 不可访问")
 
         model = req.model or self.model_default
 
         try:
-            logger.info(f"开始ASR识别: 音频URL='{req.audio_url}', 模型='{model}'")
+            logger.info("开始ASR识别: 音频URL='%s', 模型='%s'", req.audio_url, model)
 
             # 构建消息格式
             messages = [
@@ -98,11 +93,11 @@ class STTService:
             ]
 
             # 构建ASR选项
-            asr_options = {
+            asr_options: Dict[str, Any] = {
                 "enable_lid": req.enable_lid,
                 "enable_itn": req.enable_itn,
             }
-            if req.language:
+            if req.language is not None:
                 asr_options["language"] = req.language
 
             # 调用DashScope SDK
@@ -114,22 +109,22 @@ class STTService:
                 asr_options=asr_options,
             )
 
-            logger.info(f"ASR API调用成功，响应类型: {type(response)}")
+            logger.info("ASR API调用成功，响应类型: %s", type(response))
 
             # 检查API调用是否成功
             if hasattr(response, "status_code") and response.status_code != 200:
-                error_msg = f"ASR API调用失败: {response.status_code}"
+                error_msg = "ASR API调用失败: %s" % response.status_code
                 if hasattr(response, "message"):
-                    error_msg += f" - {response.message}"
+                    error_msg += " - %s" % response.message
                 if hasattr(response, "code"):
-                    error_msg += f" (错误码: {response.code})"
-                logger.error(f"ASR API错误: {error_msg}")
-                raise ValueError(error_msg)
+                    error_msg += " (错误码: %s)" % response.code
+                logger.error("ASR API错误: %s", error_msg)
+                raise ValueError("TTS 响应格式错误")
 
             # 处理响应
             text, language, duration, words = self._extract_result_fields(response)
 
-            logger.info(f"ASR识别完成: 文本长度={len(text)}, 语言={language}")
+            logger.info("ASR识别完成: 文本长度=%s, 语言=%s", len(text), language)
 
             return STTResponse(
                 text=text,
@@ -141,8 +136,8 @@ class STTService:
             )
 
         except Exception as e:
-            logger.error(f"ASR识别失败: {str(e)}")
-            raise ValueError(f"ASR识别失败: {str(e)}")
+            logger.error("ASR识别失败: %s", str(e))
+            raise ValueError("ASR识别失败: %s" % str(e))
 
     @staticmethod
     def _extract_result_fields(
@@ -159,7 +154,7 @@ class STTService:
         try:
             # 检查响应结构
             if not hasattr(response, "output") or response.output is None:
-                logger.error(f"ASR响应格式错误：缺少output字段，响应: {response}")
+                logger.error("ASR响应格式错误：缺少output字段，响应: %s", response)
                 return text, language, duration, words
 
             output = response.output
@@ -209,10 +204,10 @@ class STTService:
                 elif isinstance(usage, dict) and "seconds" in usage:
                     duration = float(usage["seconds"])
 
-            logger.debug(f"提取结果: 文本='{text}', 语言={language}, 时长={duration}")
+            logger.debug("提取结果: 文本='%s', 语言=%s, 时长=%s", text, language, duration)
 
         except Exception as e:
-            logger.error(f"提取ASR结果字段失败: {str(e)}")
+            logger.error("提取ASR结果字段失败: %s", str(e))
 
         return text, language, duration, words
 
