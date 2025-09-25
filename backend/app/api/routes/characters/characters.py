@@ -50,7 +50,7 @@ async def create_character(
             if not existing_tag:
                 raise HTTPException(status_code=400, detail=f"标签ID {tag_id} 不存在")
 
-    character_obj = character.create(db, obj_in=character_in)
+    character_obj = character.create(db, obj_in=character_in, user_id=current_user.id)
 
     # 生成向量嵌入
     try:
@@ -136,6 +136,7 @@ async def search_characters(
 def read_characters(
     *,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
     is_active: Optional[bool] = Query(None, description="是否只返回可用角色"),
@@ -144,10 +145,15 @@ def read_characters(
     """
     获取角色列表。
 
-    支持分页和过滤。
+    支持分页和过滤。用户只能看到自己创建的角色。
     """
     characters, total = character.get_multi(
-        db, skip=skip, limit=limit, is_active=is_active, tag_ids=tag_ids
+        db,
+        skip=skip,
+        limit=limit,
+        is_active=is_active,
+        tag_ids=tag_ids,
+        user_id=current_user.id,
     )
     return success_response(
         data={
@@ -160,18 +166,82 @@ def read_characters(
     )
 
 
-@router.get("/{character_id}")
-def read_character(
+@router.get("/public")
+def read_all_characters(
+    *,
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0, description="跳过的记录数"),
+    limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
+    is_active: Optional[bool] = Query(True, description="是否只返回可用角色"),
+    tag_ids: Optional[List[uuid.UUID]] = Query(None, description="标签ID过滤"),
+):
+    """
+    获取所有公开角色列表。
+
+    无需登录，支持分页和过滤。只返回用户设置为公开的角色。
+    """
+    characters, total = character.get_multi(
+        db,
+        skip=skip,
+        limit=limit,
+        is_active=is_active,
+        is_public=True,  # 只返回公开的角色
+        tag_ids=tag_ids,
+        user_id=None,  # 不限制用户，返回所有公开角色
+    )
+    return success_response(
+        data={
+            "characters": [char.model_dump() for char in characters],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
+        msg="获取公开角色列表成功",
+    )
+
+
+@router.get("/public/{character_id}")
+def read_public_character(
     *,
     db: Session = Depends(get_db),
     character_id: uuid.UUID,
 ):
     """
-    根据ID获取角色详情。
+    根据ID获取公开角色详情。
+
+    无需登录，只能查看公开的角色详情。
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
         raise HTTPException(status_code=404, detail="角色未找到")
+
+    # 检查角色是否公开
+    if not character_obj.is_public:
+        raise HTTPException(status_code=403, detail="该角色未公开")
+
+    return success_response(data=character_obj.model_dump(), msg="获取角色详情成功")
+
+
+@router.get("/{character_id}")
+def read_character(
+    *,
+    db: Session = Depends(get_db),
+    character_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    根据ID获取角色详情。
+
+    用户只能访问自己创建的角色。
+    """
+    character_obj = character.get(db, id=character_id)
+    if not character_obj:
+        raise HTTPException(status_code=404, detail="角色未找到")
+
+    # 检查用户权限
+    if character_obj.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此角色")
+
     return success_response(data=character_obj.model_dump(), msg="获取角色详情成功")
 
 
@@ -181,16 +251,20 @@ def update_character(
     db: Session = Depends(get_db),
     character_id: uuid.UUID,
     character_in: CharacterUpdate,
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     更新角色信息。
 
-    需要超级用户权限。
+    用户只能更新自己创建的角色。
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
         raise HTTPException(status_code=404, detail="角色未找到")
+
+    # 检查用户权限
+    if character_obj.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权更新此角色")
 
     # 检查名称是否与其他角色冲突
     if character_in.name and character_in.name != character_obj.name:
@@ -214,16 +288,20 @@ def delete_character(
     *,
     db: Session = Depends(get_db),
     character_id: uuid.UUID,
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(get_current_user),
 ):
     """
     删除角色（软删除）。
 
-    需要超级用户权限。
+    用户只能删除自己创建的角色。
     """
     character_obj = character.get(db, id=character_id)
     if not character_obj:
         raise HTTPException(status_code=404, detail="角色未找到")
+
+    # 检查用户权限
+    if character_obj.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权删除此角色")
 
     character_obj = character.delete(db, id=character_id)
     return success_response(data=character_obj.model_dump(), msg="角色删除成功")

@@ -7,6 +7,7 @@ from pgvector.sqlalchemy import Vector
 
 if TYPE_CHECKING:
     from app.models.conversation import Conversation
+    from app.models.user import User
 
 
 # 标签表
@@ -67,6 +68,7 @@ class CharacterBase(SQLModel):
         default=None, max_length=200, description="来源/版权声明"
     )
     is_active: bool = Field(default=True, description="是否可用")
+    is_public: bool = Field(default=False, description="是否公开")
     # AI图片生成相关字段
     auto_generate_image: bool = Field(
         default=False, description="是否自动生成AI形象图片"
@@ -100,6 +102,7 @@ class CharacterUpdate(CharacterBase):
     example_lines: Optional[List[str]] = Field(default=None)
     source: Optional[str] = Field(default=None, max_length=200)
     is_active: Optional[bool] = Field(default=None)
+    is_public: Optional[bool] = Field(default=None)
     auto_generate_image: Optional[bool] = Field(default=None)
     image_style: Optional[str] = Field(default=None, max_length=20)
     image_size: Optional[str] = Field(default=None, max_length=20)
@@ -113,10 +116,12 @@ class Character(CharacterBase, table=True):
     __tablename__ = "characters"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", description="创建者用户ID")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # 关系
+    user: Optional["User"] = Relationship(back_populates="characters")
     tag_relations: List["CharacterTagMap"] = Relationship(
         back_populates="character", cascade_delete=True
     )
