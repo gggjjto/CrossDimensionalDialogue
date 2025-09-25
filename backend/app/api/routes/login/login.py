@@ -13,6 +13,7 @@ from app.utils import (
     send_email,
     verify_password_reset_token,
 )
+from app.utils.response import success_response, error_response
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -23,7 +24,7 @@ router = APIRouter(tags=["login"])
 @router.post("/login/access-token")
 def login_access_token(
     session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
-) -> Token:
+):
     """
     OAuth2兼容的令牌登录，获取访问令牌用于后续请求
     """
@@ -35,23 +36,24 @@ def login_access_token(
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="用户账户未激活")
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return Token(
+    token = Token(
         access_token=security.create_access_token(
             user.id, expires_delta=access_token_expires
         )
     )
+    return success_response(data=token.dict(), msg="登录成功")
 
 
-@router.post("/login/test-token", response_model=UserPublic)
-def test_token(current_user: CurrentUser) -> Any:
+@router.post("/login/test-token")
+def test_token(current_user: CurrentUser):
     """
     测试访问令牌
     """
-    return current_user
+    return success_response(data=current_user.dict(), msg="令牌验证成功")
 
 
 @router.post("/password-recovery/{email}")
-def recover_password(email: str, session: SessionDep) -> Message:
+def recover_password(email: str, session: SessionDep):
     """
     密码恢复
     """
@@ -71,11 +73,13 @@ def recover_password(email: str, session: SessionDep) -> Message:
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
-    return Message(message="密码恢复邮件已发送")
+    return success_response(
+        data={"message": "密码恢复邮件已发送"}, msg="密码恢复邮件已发送"
+    )
 
 
 @router.post("/reset-password/")
-def reset_password(session: SessionDep, body: NewPassword) -> Message:
+def reset_password(session: SessionDep, body: NewPassword):
     """
     重置密码
     """
@@ -94,7 +98,7 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
     user.hashed_password = hashed_password
     session.add(user)
     session.commit()
-    return Message(message="密码更新成功")
+    return success_response(data={"message": "密码更新成功"}, msg="密码更新成功")
 
 
 @router.post(
