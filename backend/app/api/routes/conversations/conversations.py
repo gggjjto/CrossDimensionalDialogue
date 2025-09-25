@@ -9,6 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from app.crud.character import character
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
+from app.services.llm_service import llm_service
+from app.schemas.character import CharacterGenerateRequest, CharacterGenerateResponse
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -32,20 +34,19 @@ from app.schemas.conversation import (
     ContentType,
 )
 from app.models.conversation import ConversationStatus
+from app.utils.response import success_response, error_response
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 # 会话管理端点
-@router.post(
-    "/", response_model=ConversationPublic, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     conversation_in: ConversationCreate,
-) -> ConversationPublic:
+):
     """创建会话"""
     # 验证角色是否存在
     if conversation_in.character_id:
@@ -77,10 +78,12 @@ async def create_conversation(
         db, obj_in=conversation_in, user_id=current_user.id
     )
 
-    return ConversationPublic.from_orm(db_conversation)
+    return success_response(
+        data=ConversationPublic.from_orm(db_conversation).dict(), msg="会话创建成功"
+    )
 
 
-@router.get("/", response_model=ConversationListResponse)
+@router.get("/")
 async def get_conversations(
     *,
     db: Session = Depends(get_db),
@@ -91,7 +94,7 @@ async def get_conversations(
     character_id: Optional[uuid.UUID] = Query(None, description="角色ID过滤"),
     order_by: str = Query("last_message_at", description="排序字段"),
     order: str = Query("desc", description="排序方向"),
-) -> ConversationListResponse:
+):
     """获取会话列表"""
     # 转换状态参数
     conversation_status = None
@@ -134,21 +137,24 @@ async def get_conversations(
         # conv_dict["user"] = conv.user
         conversation_list.append(ConversationWithDetails(**conv_dict))
 
-    return ConversationListResponse(
-        conversations=conversation_list,
-        total=total,
-        skip=skip,
-        limit=limit,
+    return success_response(
+        data={
+            "conversations": [conv.dict() for conv in conversation_list],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
+        msg="获取会话列表成功",
     )
 
 
-@router.get("/{conversation_id}", response_model=ConversationWithDetails)
+@router.get("/{conversation_id}")
 async def get_conversation(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
-) -> ConversationWithDetails:
+):
     """获取会话详情"""
     db_conversation = conversation.get_by_user_and_id(
         db, id=conversation_id, user_id=current_user.id
@@ -162,17 +168,19 @@ async def get_conversation(
     conv_dict["character"] = db_conversation.character
     conv_dict["user"] = db_conversation.user
 
-    return ConversationWithDetails(**conv_dict)
+    return success_response(
+        data=ConversationWithDetails(**conv_dict).dict(), msg="获取会话详情成功"
+    )
 
 
-@router.put("/{conversation_id}", response_model=ConversationPublic)
+@router.put("/{conversation_id}")
 async def update_conversation(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
     conversation_in: ConversationUpdate,
-) -> ConversationPublic:
+):
     """更新会话"""
     db_conversation = conversation.get_by_user_and_id(
         db, id=conversation_id, user_id=current_user.id
@@ -197,16 +205,18 @@ async def update_conversation(
         db, db_obj=db_conversation, obj_in=conversation_in
     )
 
-    return ConversationPublic.from_orm(db_conversation)
+    return success_response(
+        data=ConversationPublic.from_orm(db_conversation).dict(), msg="会话更新成功"
+    )
 
 
-@router.delete("/{conversation_id}", response_model=ConversationPublic)
+@router.delete("/{conversation_id}")
 async def delete_conversation(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
-) -> ConversationPublic:
+):
     """删除会话"""
     db_conversation = conversation.get_by_user_and_id(
         db, id=conversation_id, user_id=current_user.id
@@ -220,16 +230,18 @@ async def delete_conversation(
         db, id=conversation_id, user_id=current_user.id
     )
 
-    return ConversationPublic.from_orm(db_conversation)
+    return success_response(
+        data=ConversationPublic.from_orm(db_conversation).dict(), msg="会话删除成功"
+    )
 
 
-@router.post("/search", response_model=ConversationListResponse)
+@router.post("/search")
 async def search_conversations(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     search_params: ConversationSearchRequest,
-) -> ConversationListResponse:
+):
     """搜索会话"""
     conversations, total = conversation.search(
         db, user_id=current_user.id, search_params=search_params
@@ -243,18 +255,20 @@ async def search_conversations(
         conv_dict["user"] = conv.user
         conversation_list.append(ConversationWithDetails(**conv_dict))
 
-    return ConversationListResponse(
-        conversations=conversation_list,
-        total=total,
-        skip=search_params.skip,
-        limit=search_params.limit,
+    return success_response(
+        data={
+            "conversations": [conv.dict() for conv in conversation_list],
+            "total": total,
+            "skip": search_params.skip,
+            "limit": search_params.limit,
+        },
+        msg="搜索会话成功",
     )
 
 
 # 消息管理端点
 @router.post(
     "/{conversation_id}/messages",
-    response_model=MessagePublic,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_message(
@@ -263,7 +277,7 @@ async def create_message(
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
     message_in: MessageCreate,
-) -> MessagePublic:
+):
     """发送消息"""
     # 检查会话是否存在且属于当前用户
     db_conversation = conversation.get_by_user_and_id(
@@ -308,10 +322,12 @@ async def create_message(
             db, db_obj=daily_limit, increment=1
         )
 
-    return MessagePublic.from_orm(db_message)
+    return success_response(
+        data=MessagePublic.from_orm(db_message).dict(), msg="消息发送成功"
+    )
 
 
-@router.get("/{conversation_id}/messages", response_model=MessageListResponse)
+@router.get("/{conversation_id}/messages")
 async def get_messages(
     *,
     db: Session = Depends(get_db),
@@ -323,7 +339,7 @@ async def get_messages(
     content_type: Optional[str] = Query(None, description="内容类型过滤"),
     since: Optional[datetime] = Query(None, description="开始时间"),
     until: Optional[datetime] = Query(None, description="结束时间"),
-) -> MessageListResponse:
+):
     """获取消息列表"""
     # 检查会话是否存在且属于当前用户
     db_conversation = conversation.get_by_user_and_id(
@@ -365,9 +381,39 @@ async def get_messages(
         until=until,
     )
 
-    return MessageListResponse(
-        messages=[MessagePublic.from_orm(msg) for msg in messages],
-        total=total,
-        skip=skip,
-        limit=limit,
+    return success_response(
+        data={
+            "messages": [MessagePublic.from_orm(msg).dict() for msg in messages],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
+        msg="获取消息列表成功",
     )
+
+
+@router.post("/generate")
+async def generate_character(
+    *,
+    db: Session = Depends(get_db),
+    request: CharacterGenerateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    使用AI生成角色设定
+
+    根据用户提供的基本信息，使用LLM生成完整的角色设定。
+    需要用户权限。
+    """
+    try:
+        # 调用LLM服务生成角色设定
+        response = await llm_service.generate_character_profile(request)
+
+        return success_response(data=response.dict(), msg="角色设定生成成功")
+
+    except Exception as e:
+        logger.error(f"生成角色设定失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成角色设定失败: {str(e)}",
+        )
