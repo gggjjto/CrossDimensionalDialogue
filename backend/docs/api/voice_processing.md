@@ -154,6 +154,65 @@ curl -X POST "http://localhost:8000/api/v1/voice/stt" \
 }
 ```
 
+### 5. 处理语音消息
+
+**POST** `/api/v1/voice/message`
+
+完整的语音对话流程：STT + LLM + TTS。
+
+#### 请求参数
+
+- `conversation_id` (必需): 会话ID (UUID)
+- `audio_file_url` (必需): 音频文件URL（必须是公网可访问的HTTP链接）
+- `voice_preference` (可选): 音色偏好，如 "Cherry", "Dylan" 等
+
+#### 请求示例
+
+```json
+{
+  "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+  "audio_file_url": "https://example.com/audio/user_voice.wav",
+  "voice_preference": "Cherry"
+}
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "user_message_id": "uuid",
+  "character_message_id": "uuid",
+  "text_response": "你好！很高兴听到你的声音。",
+  "audio_response_url": "https://example.com/audio/character_response.wav",
+  "voice_used": "Cherry",
+  "stt_text": "你好，今天天气怎么样？"
+}
+```
+
+#### 响应字段说明
+
+- `success` (bool): 请求是否成功
+- `user_message_id` (string): 用户消息ID
+- `character_message_id` (string): 角色回复消息ID
+- `text_response` (string): 角色文本回复
+- `audio_response_url` (string): 角色语音回复URL
+- `voice_used` (string): 使用的音色
+- `stt_text` (string): 语音识别结果
+
+#### 使用示例
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/voice/message" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+    "audio_file_url": "https://example.com/audio/user_voice.wav",
+    "voice_preference": "Cherry"
+  }'
+```
+
 ## 对话中的语音回复
 
 ### 启用语音回复
