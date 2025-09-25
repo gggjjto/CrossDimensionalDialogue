@@ -21,15 +21,15 @@ from app.core.config import settings
 from app.models.conversation import ConversationSettings
 from app.services.dialogue_orchestration_service import dialogue_orchestration_service
 from app.crud.conversation import conversation
+from app.utils.response import success_response, error_response
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/orchestration",tags=["dialogue-orchestration"])
+router = APIRouter(prefix="/orchestration", tags=["dialogue-orchestration"])
 
 
 @router.post(
     "/conversations/{conversation_id}/send-message",
-    response_model=SendMessageResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def send_message(
@@ -38,7 +38,7 @@ async def send_message(
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
     request: SendMessageRequest,
-) -> SendMessageResponse:
+):
     """
     发送消息并获取角色回复
 
@@ -49,7 +49,7 @@ async def send_message(
         request: 发送消息请求
 
     Returns:
-        SendMessageResponse: 发送消息响应
+        统一格式的响应
     """
     try:
         # 处理用户消息
@@ -67,13 +67,16 @@ async def send_message(
                 detail=result["error"],
             )
 
-        return SendMessageResponse(
-            success=True,
-            user_message_id=result["user_message"].id,
-            character_message_id=result["character_message"].id,
-            character_response=result["character_response"].content,
-            audio_url=result["audio_url"],
-            usage=result["character_response"].usage,
+        return success_response(
+            data={
+                "success": True,
+                "user_message_id": result["user_message"].id,
+                "character_message_id": result["character_message"].id,
+                "character_response": result["character_response"].content,
+                "audio_url": result["audio_url"],
+                "usage": result["character_response"].usage,
+            },
+            msg="消息发送成功",
         )
 
     except ValueError as e:
@@ -87,7 +90,6 @@ async def send_message(
 
 @router.get(
     "/conversations/{conversation_id}/context",
-    response_model=ConversationContextResponse,
 )
 async def get_conversation_context(
     *,
@@ -95,7 +97,7 @@ async def get_conversation_context(
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
     limit: int = 10,
-) -> ConversationContextResponse:
+):
     """
     获取会话上下文
 
@@ -106,7 +108,7 @@ async def get_conversation_context(
         limit: 消息数量限制
 
     Returns:
-        ConversationContextResponse: 会话上下文响应
+        统一格式的响应
     """
     try:
         context = await dialogue_orchestration_service.get_conversation_context(
@@ -134,17 +136,20 @@ async def get_conversation_context(
                 }
             )
 
-        return ConversationContextResponse(
-            conversation_id=conversation_id,
-            character_name=(
-                context["character"].name if context["character"] else "未知角色"
-            ),
-            character_bio=(
-                context["character"].short_bio if context["character"] else None
-            ),
-            recent_messages=recent_messages,
-            message_count=context["message_count"],
-            context_window_size=context["context_window_size"],
+        return success_response(
+            data={
+                "conversation_id": conversation_id,
+                "character_name": (
+                    context["character"].name if context["character"] else "未知角色"
+                ),
+                "character_bio": (
+                    context["character"].short_bio if context["character"] else None
+                ),
+                "recent_messages": recent_messages,
+                "message_count": context["message_count"],
+                "context_window_size": context["context_window_size"],
+            },
+            msg="获取会话上下文成功",
         )
 
     except ValueError as e:
@@ -159,7 +164,6 @@ async def get_conversation_context(
 
 @router.put(
     "/conversations/{conversation_id}/settings",
-    response_model=ConversationSettingsResponse,
 )
 async def update_conversation_settings(
     *,
@@ -167,7 +171,7 @@ async def update_conversation_settings(
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
     request: UpdateConversationSettingsRequest,
-) -> ConversationSettingsResponse:
+):
     """
     更新会话设置
 
@@ -178,7 +182,7 @@ async def update_conversation_settings(
         request: 更新设置请求
 
     Returns:
-        ConversationSettingsResponse: 会话设置响应
+        统一格式的响应
     """
     try:
         # 获取会话
@@ -209,10 +213,13 @@ async def update_conversation_settings(
         db.commit()
         db.refresh(db_conversation)
 
-        return ConversationSettingsResponse(
-            conversation_id=conversation_id,
-            settings=current_settings,
-            updated_at=db_conversation.updated_at,
+        return success_response(
+            data={
+                "conversation_id": conversation_id,
+                "settings": current_settings.dict(),
+                "updated_at": db_conversation.updated_at,
+            },
+            msg="会话设置更新成功",
         )
 
     except Exception as e:
@@ -224,14 +231,13 @@ async def update_conversation_settings(
 
 @router.get(
     "/conversations/{conversation_id}/settings",
-    response_model=ConversationSettingsResponse,
 )
 async def get_conversation_settings(
     *,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     conversation_id: uuid.UUID,
-) -> ConversationSettingsResponse:
+):
     """
     获取会话设置
 
@@ -241,7 +247,7 @@ async def get_conversation_settings(
         conversation_id: 会话ID
 
     Returns:
-        ConversationSettingsResponse: 会话设置响应
+        统一格式的响应
     """
     try:
         # 获取会话
@@ -258,10 +264,13 @@ async def get_conversation_settings(
         if db_conversation.settings:
             settings = ConversationSettings(**db_conversation.settings)
 
-        return ConversationSettingsResponse(
-            conversation_id=conversation_id,
-            settings=settings,
-            updated_at=db_conversation.updated_at,
+        return success_response(
+            data={
+                "conversation_id": conversation_id,
+                "settings": settings.dict(),
+                "updated_at": db_conversation.updated_at,
+            },
+            msg="获取会话设置成功",
         )
 
     except Exception as e:
