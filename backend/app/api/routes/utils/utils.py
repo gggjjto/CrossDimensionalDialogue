@@ -4,6 +4,7 @@ from pydantic.networks import EmailStr
 from app.api.deps import get_current_active_superuser
 from app.models import Message
 from app.utils import generate_test_email, send_email
+from app.utils.response import success_response, error_response
 
 router = APIRouter(prefix="/utils", tags=["utils"])
 
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/utils", tags=["utils"])
     dependencies=[Depends(get_current_active_superuser)],
     status_code=201,
 )
-def test_email(email_to: EmailStr) -> Message:
+def test_email(email_to: EmailStr):
     """
     测试邮件发送。
     """
@@ -23,12 +24,12 @@ def test_email(email_to: EmailStr) -> Message:
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
-    return Message(message="测试邮件已发送")
+    return success_response(data={"message": "测试邮件已发送"}, msg="测试邮件已发送")
 
 
 @router.get("/health-check/")
-async def health_check() -> bool:
+async def health_check():
     """
     健康检查。
     """
-    return True
+    return success_response(data={"status": "healthy"}, msg="服务正常")
