@@ -129,7 +129,7 @@ QWEN3_TTS_17_VOICES: List[VoiceCatalogCreate] = [
         voice="Eric",
         preview_url=None,
         description="一个跳脱市井的四川成都男子。",
-    )
+    ),
 ]
 
 
@@ -157,3 +157,11 @@ def list_voices(session: Session, *, provider: str = "qwen3-tts") -> list[VoiceC
 def init_qwen3_tts_voice_catalog(session: Session) -> int:
     """项目初始化时调用：初始化 Qwen3-TTS 的 17 种音色目录。"""
     return upsert_voice_catalog(session, items=QWEN3_TTS_17_VOICES)
+
+
+def get_voice_catalog_with_demos(
+    session: Session, *, provider: str = "qwen3-tts"
+) -> list[VoiceCatalog]:
+    """获取包含示例语音的音色目录"""
+    items, _ = voice_catalog_crud.get_multi(session, provider=provider, limit=500)
+    return items

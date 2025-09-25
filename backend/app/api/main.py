@@ -6,7 +6,7 @@ from app.api.routes.login import login
 from app.api.routes.utils import utils
 from app.api.routes.dialogue import dialogue_orchestration
 from app.api.routes.image import image
-from app.api.routes.voice import voice_catalog, voice_processing
+from app.api.routes.voice import voice_processing, voice_demo
 
 from app.api.routes import items, private
 from app.core.config import settings
@@ -28,8 +28,8 @@ api_router.include_router(dialogue_orchestration.router)
 api_router.include_router(image.router)
 
 # 语音处理
-api_router.include_router(voice_catalog.router)
 api_router.include_router(voice_processing.router)
+api_router.include_router(voice_demo.router)
 
 # 工具和项目
 api_router.include_router(utils.router)
