@@ -1,3 +1,9 @@
+/**
+ * 构建 URL 并添加查询字符串参数
+ * @param url 原始 URL
+ * @param params 查询字符串参数
+ * @returns 构建后的 URL
+ */
 export function buildUrlWithParams(
   url: string,
   params?: Record<string, unknown>
@@ -18,6 +24,12 @@ export function buildUrlWithParams(
   return `${url}${joiner}${usp.toString()}`
 }
 
+/**
+ * 规范化请求体
+ * @param body 请求体
+ * @param headers 请求头
+ * @returns 规范化后的请求体
+ */
 export function normalizeRequestBody(
   body: unknown,
   headers: Record<string, string>
@@ -28,7 +40,6 @@ export function normalizeRequestBody(
   )
   const ct = contentType ? headers[contentType] : undefined
   if (!ct) {
-    // Default to JSON
     headers["Content-Type"] = "application/json"
     return JSON.stringify(body)
   }
@@ -43,6 +54,6 @@ export function normalizeRequestBody(
     })
     return usp as unknown as BodyInit
   }
-  // For multipart/form-data the boundary must be set by the browser; if user set it manually, assume body is FormData or already encoded
+  // 对于 multipart/form-data，boundary 必须由浏览器自动设置；如果手动设置了，则假定 body 已经是 FormData 或已编码
   return body as BodyInit
 }
