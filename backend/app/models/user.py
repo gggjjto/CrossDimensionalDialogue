@@ -1,11 +1,24 @@
 import uuid
+from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, List
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.models.character import Character
+    from app.models.conversation import Conversation
     from app.models.item import Item
+
+
+class Gender(str, Enum):
+    """性别枚举"""
+
+    MALE = "male"  # 男
+    FEMALE = "female"  # 女
+    OTHER = "other"  # 其他
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"  # 不愿透露
 
 
 # Shared properties
@@ -14,6 +27,13 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    avatar_url: str | None = Field(
+        default=None, max_length=500, description="用户头像URL"
+    )
+    bio: str | None = Field(default=None, max_length=1000, description="个人简介")
+    location: str | None = Field(default=None, max_length=100, description="所在地")
+    website: str | None = Field(default=None, max_length=500, description="个人网站")
+    gender: Gender | None = Field(default=None, description="性别")
 
 
 # Properties to receive via API on creation
@@ -25,6 +45,13 @@ class UserRegister(SQLModel):
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
+    avatar_url: str | None = Field(
+        default=None, max_length=500, description="用户头像URL"
+    )
+    bio: str | None = Field(default=None, max_length=1000, description="个人简介")
+    location: str | None = Field(default=None, max_length=100, description="所在地")
+    website: str | None = Field(default=None, max_length=500, description="个人网站")
+    gender: Gender | None = Field(default=None, description="性别")
 
 
 # Properties to receive via API on update, all are optional
@@ -36,6 +63,13 @@ class UserUpdate(UserBase):
 class UserUpdateMe(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=255)
+    avatar_url: str | None = Field(
+        default=None, max_length=500, description="用户头像URL"
+    )
+    bio: str | None = Field(default=None, max_length=1000, description="个人简介")
+    location: str | None = Field(default=None, max_length=100, description="所在地")
+    website: str | None = Field(default=None, max_length=500, description="个人网站")
+    gender: Gender | None = Field(default=None, description="性别")
 
 
 class UpdatePassword(SQLModel):
@@ -47,12 +81,26 @@ class UpdatePassword(SQLModel):
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="注册时间"
+    )
+    character_count: int = Field(default=0, description="创建智能体数量")
+    conversation_count: int = Field(default=0, description="对话次数")
     items: List["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    conversations: List["Conversation"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
+    characters: List["Character"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
 
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
+    created_at: datetime
+    character_count: int
+    conversation_count: int
 
 
 class UsersPublic(SQLModel):

@@ -1,8 +1,9 @@
 from typing import Any
-
+import uuid
 from app.core.security import get_password_hash, verify_password
 from app.models.user import User, UserCreate, UserUpdate
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
+from app.models.conversation import Conversation
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -46,3 +47,11 @@ def authenticate(*, session: Session, email: str, password: str) -> User | None:
     if not verify_password(password, db_user.hashed_password):
         return None
     return db_user
+
+
+def get_user_conversation_count(*, session: Session, user_id: uuid.UUID) -> int:
+    """获取用户对话数量"""
+    statement = select(func.count(Conversation.id)).where(
+        Conversation.user_id == user_id
+    )
+    return session.exec(statement).one()

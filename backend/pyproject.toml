@@ -16,14 +16,18 @@ dependencies = [
     "httpx<1.0.0,>=0.25.1",
     "psycopg[binary]<4.0.0,>=3.1.13",
     "sqlmodel<1.0.0,>=0.0.21",
-    # Pin bcrypt until passlib supports the latest
-    "bcrypt==4.3.0",
+    # Pin bcrypt to 3.x for passlib compatibility
+    "bcrypt>=3.2.0,<4.0.0",
     "pydantic-settings<3.0.0,>=2.2.1",
     "sentry-sdk[fastapi]<2.0.0,>=1.40.6",
     "pyjwt<3.0.0,>=2.8.0",
     "pgvector>=0.4.1",
     "openai>=1.108.1",
     "dashscope>=1.24.6",
+    "librosa>=0.11.0",
+    "soundfile>=0.13.1",
+    "qiniu>=7.12.1",
+    "pillow>=10.0.0",
 ]
 
 [tool.uv]
@@ -34,6 +38,7 @@ dev-dependencies = [
     "pre-commit<4.0.0,>=3.6.2",
     "types-passlib<2.0.0.0,>=1.7.7.20240106",
     "coverage<8.0.0,>=7.4.3",
+    "pytest-asyncio>=0.23.8",
 ]
 
 [build-system]

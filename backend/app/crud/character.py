@@ -22,11 +22,13 @@ from app.models.character import (
 class CharacterCRUD:
     """角色CRUD操作类"""
 
-    def create(self, db: Session, *, obj_in: CharacterCreate) -> Character:
+    def create(
+        self, db: Session, *, obj_in: CharacterCreate, user_id: uuid.UUID
+    ) -> Character:
         """创建角色"""
         # 创建角色基本信息
         character_data = obj_in.model_dump(exclude={"tag_ids"})
-        character = Character(**character_data)
+        character = Character(**character_data, user_id=user_id)
         db.add(character)
         db.flush()  # 获取角色ID
 
@@ -67,7 +69,9 @@ class CharacterCRUD:
         skip: int = 0,
         limit: int = 100,
         is_active: Optional[bool] = None,
+        is_public: Optional[bool] = None,
         tag_ids: Optional[List[uuid.UUID]] = None,
+        user_id: Optional[uuid.UUID] = None,
     ) -> Tuple[List[Character], int]:
         """获取角色列表"""
         statement = select(Character).options(
@@ -78,6 +82,10 @@ class CharacterCRUD:
         conditions = []
         if is_active is not None:
             conditions.append(Character.is_active == is_active)
+        if is_public is not None:
+            conditions.append(Character.is_public == is_public)
+        if user_id is not None:
+            conditions.append(Character.user_id == user_id)
         if tag_ids:
             conditions.append(
                 Character.id.in_(
@@ -237,6 +245,13 @@ class CharacterCRUD:
         # 暂时只使用文本搜索
         return self._text_search(db, search_request)
 
+    def get_user_character_count(self, db: Session, *, user_id: uuid.UUID) -> int:
+        """获取用户创建的角色数量"""
+        statement = select(func.count(Character.id)).where(
+            and_(Character.user_id == user_id, Character.is_active == True)
+        )
+        return db.exec(statement).one()
+
     def _create_character_tag_relations(
         self, db: Session, character_id: uuid.UUID, tag_ids: List[uuid.UUID]
     ) -> None:
@@ -298,9 +313,37 @@ class CharacterTagCRUD:
     def delete(self, db: Session, *, id: uuid.UUID) -> Optional[CharacterTag]:
         """删除标签"""
         tag = self.get(db, id=id)
-        if tag:
-            db.delete(tag)
-            db.commit()
+        if not tag:
+            return None
+
+        # 检查是否有角色使用此标签
+        from app.models.character import CharacterTagMap
+
+        tag_usage = db.query(CharacterTagMap).filter(CharacterTagMap.tag_id == id).all()
+
+        if tag_usage:
+            # 检查是否有角色只使用这一个标签
+            for usage in tag_usage:
+                character_id = usage.character_id
+                # 检查该角色是否还有其他标签
+                other_tags = (
+                    db.query(CharacterTagMap)
+                    .filter(
+                        CharacterTagMap.character_id == character_id,
+                        CharacterTagMap.tag_id != id,
+                    )
+                    .count()
+                )
+
+                if other_tags == 0:
+                    # 该角色只有这一个标签，不允许删除
+                    raise ValueError(
+                        f"标签 '{tag.name}' 是角色 '{character_id}' 的唯一标签，无法删除"
+                    )
+
+        # 如果没有角色使用此标签，或者所有使用此标签的角色都有其他标签，则可以删除
+        db.delete(tag)
+        db.commit()
         return tag
 
 

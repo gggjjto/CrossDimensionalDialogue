@@ -20,6 +20,7 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
+
 # Set all CORS enabled origins
 if settings.all_cors_origins:
     app.add_middleware(
@@ -34,3 +35,8 @@ if settings.all_cors_origins:
 setup_exception_handlers(app)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

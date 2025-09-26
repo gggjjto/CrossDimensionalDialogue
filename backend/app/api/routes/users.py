@@ -4,7 +4,7 @@ from typing import Any
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.crud import user as crud_user
+from app.crud import user as crud_user, character as crud_character
 from app.models import (
     Item,
     Message,
@@ -18,6 +18,7 @@ from app.models import (
     UserUpdateMe,
 )
 from app.utils import generate_new_account_email, send_email
+from app.utils.response import success_response, error_response
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import col, delete, select
@@ -28,9 +29,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=UsersPublic,
 )
-def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+def read_users(session: SessionDep, skip: int = 0, limit: int = 100):
     """
     获取用户列表。
     """
@@ -40,13 +40,19 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 
     statement = select(User).offset(skip).limit(limit)
     users = session.exec(statement).all()
-    return UsersPublic(data=users, count=count)
+    return success_response(
+        data={
+            "users": [user.dict() for user in users],
+            "count": count,
+            "skip": skip,
+            "limit": limit,
+        },
+        msg="获取用户列表成功",
+    )
 
 
-@router.post(
-    "/", dependencies=[Depends(get_current_active_superuser)], response_model=UserPublic
-)
-def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
+@router.post("/", dependencies=[Depends(get_current_active_superuser)])
+def create_user(*, session: SessionDep, user_in: UserCreate):
     """
     创建新用户。
     """
@@ -67,13 +73,13 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
-    return user
+    return success_response(data=user.dict(), msg="用户创建成功")
 
 
-@router.patch("/me", response_model=UserPublic)
+@router.patch("/me")
 def update_user_me(
     *, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser
-) -> Any:
+):
     """
     更新当前用户信息。
     """
@@ -89,13 +95,13 @@ def update_user_me(
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
-    return current_user
+    return success_response(data=current_user.dict(), msg="用户信息更新成功")
 
 
-@router.patch("/me/password", response_model=Message)
+@router.patch("/me/password")
 def update_password_me(
     *, session: SessionDep, body: UpdatePassword, current_user: CurrentUser
-) -> Any:
+):
     """
     更新当前用户密码。
     """
@@ -107,19 +113,36 @@ def update_password_me(
     current_user.hashed_password = hashed_password
     session.add(current_user)
     session.commit()
-    return Message(message="密码更新成功")
+    return success_response(data={"message": "密码更新成功"}, msg="密码更新成功")
 
 
-@router.get("/me", response_model=UserPublic)
-def read_user_me(current_user: CurrentUser) -> Any:
+@router.get("/me")
+def read_user_me(session: SessionDep, current_user: CurrentUser):
     """
     获取当前用户信息。
     """
-    return current_user
+    # 动态更新统计字段
+    character_count = crud_character.get_user_character_count(
+        session, user_id=current_user.id
+    )
+    conversation_count = crud_user.get_user_conversation_count(
+        session, user_id=current_user.id
+    )
+
+    # 更新用户对象的统计字段
+    current_user.character_count = character_count
+    current_user.conversation_count = conversation_count
+
+    # 保存到数据库
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+
+    return success_response(data=current_user.dict(), msg="获取用户信息成功")
 
 
-@router.delete("/me", response_model=Message)
-def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
+@router.delete("/me")
+def delete_user_me(session: SessionDep, current_user: CurrentUser):
     """
     删除当前用户。
     """
@@ -127,11 +150,11 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
         raise HTTPException(status_code=403, detail="超级用户不能删除自己")
     session.delete(current_user)
     session.commit()
-    return Message(message="用户删除成功")
+    return success_response(data={"message": "用户删除成功"}, msg="用户删除成功")
 
 
-@router.post("/signup", response_model=UserPublic)
-def register_user(session: SessionDep, user_in: UserRegister) -> Any:
+@router.post("/signup")
+def register_user(session: SessionDep, user_in: UserRegister):
     """
     用户注册（无需登录）。
     """
@@ -143,38 +166,35 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
         )
     user_create = UserCreate.model_validate(user_in)
     user = crud_user.create_user(session=session, user_create=user_create)
-    return user
+    return success_response(data=user.dict(), msg="用户注册成功")
 
 
-@router.get("/{user_id}", response_model=UserPublic)
-def read_user_by_id(
-    user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser
-) -> Any:
+@router.get("/{user_id}")
+def read_user_by_id(user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser):
     """
     根据ID获取用户信息。
     """
     user = session.get(User, user_id)
     if user == current_user:
-        return user
+        return success_response(data=user.dict(), msg="获取用户信息成功")
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=403,
             detail="用户权限不足",
         )
-    return user
+    return success_response(data=user.dict(), msg="获取用户信息成功")
 
 
 @router.patch(
     "/{user_id}",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=UserPublic,
 )
 def update_user(
     *,
     session: SessionDep,
     user_id: uuid.UUID,
     user_in: UserUpdate,
-) -> Any:
+):
     """
     更新用户信息。
     """
@@ -193,13 +213,11 @@ def update_user(
             raise HTTPException(status_code=409, detail="该邮箱已被使用")
 
     db_user = crud_user.update_user(session=session, db_user=db_user, user_in=user_in)
-    return db_user
+    return success_response(data=db_user.dict(), msg="用户信息更新成功")
 
 
 @router.delete("/{user_id}", dependencies=[Depends(get_current_active_superuser)])
-def delete_user(
-    session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
-) -> Message:
+def delete_user(session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID):
     """
     删除用户。
     """
@@ -212,4 +230,4 @@ def delete_user(
     session.exec(statement)  # type: ignore
     session.delete(user)
     session.commit()
-    return Message(message="用户删除成功")
+    return success_response(data={"message": "用户删除成功"}, msg="用户删除成功")
