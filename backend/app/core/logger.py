@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -26,17 +27,21 @@ def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
 
-    # 文件输出（每天滚动）
-    file_handler = TimedRotatingFileHandler(
-        LOG_DIR / f"{name}.log",
-        when="midnight",
-        interval=1,
-        backupCount=7,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-
     logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+
+    # Windows下多进程/多实例会在回滚时竞争日志文件。
+    # 允许通过环境变量完全禁用文件日志，供RQ Worker等子进程使用。
+    if os.getenv("DISABLE_FILE_LOG") != "1":
+        file_handler = TimedRotatingFileHandler(
+            LOG_DIR / f"{name}.log",
+            when="midnight",
+            interval=1,
+            backupCount=7,
+            encoding="utf-8",
+            delay=True,  # 延迟打开文件，降低占用冲突概率
+            utc=True,
+        )
+        file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        logger.addHandler(file_handler)
 
     return logger

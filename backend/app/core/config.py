@@ -129,6 +129,20 @@ class Settings(BaseSettings):
     # 最大会话数量限制
     MAX_CONVERSATIONS_LIMIT: int = 10
 
+    # Redis配置
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_MAX_CONNECTIONS: int = 20
+    REDIS_RETRY_ON_TIMEOUT: bool = True
+    REDIS_HEALTH_CHECK_INTERVAL: int = 30
+
+    # 任务队列配置
+    TASK_QUEUE_ENABLED: bool = True
+    TASK_DEFAULT_TIMEOUT: int = 300  # 5分钟
+    TASK_DEFAULT_RETRY: int = 3
+    TASK_RESULT_TTL: int = 3600  # 结果保存1小时
+    TASK_FAILURE_TTL: int = 86400  # 失败信息保存24小时
+    TASK_MAX_WORKERS: int = 4
+
     # 语音转文本(STT)配置
     STT_ENGINE: Literal["openai", "azure", "google", "whisper"] = "whisper"
     WHISPER_MODEL_SIZE: str = "base"  # tiny, base, small, medium, large

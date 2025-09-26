@@ -6,6 +6,7 @@ from app.api.routes import (
     items,
     login,
     private,
+    tasks,
     users,
     utils,
     voice_processing,
@@ -31,6 +32,9 @@ api_router.include_router(image.router)
 
 # 语音处理
 api_router.include_router(voice_processing.router)
+
+# 任务管理
+api_router.include_router(tasks.router)
 
 # 工具和项目
 api_router.include_router(utils.router)

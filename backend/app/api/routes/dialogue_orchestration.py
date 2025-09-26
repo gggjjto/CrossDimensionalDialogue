@@ -2,26 +2,32 @@
 对话编排API路由
 """
 
-import uuid
 import logging
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
-
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_current_user, get_db
+from app.core.config import settings
+from app.crud.conversation import conversation
+from app.models.conversation import ConversationSettings
 from app.models.user import User
 from app.schemas.dialogue_orchestration import (
+    ConversationContextResponse,
+    ConversationSettingsResponse,
     SendMessageRequest,
     SendMessageResponse,
-    ConversationContextResponse,
     UpdateConversationSettingsRequest,
-    ConversationSettingsResponse,
 )
-from app.core.config import settings
-from app.models.conversation import ConversationSettings
+from app.schemas.task import (
+    TaskCreateRequest,
+    TaskResponse,
+    TaskType,
+    TextMessageTaskInput,
+)
 from app.services.dialogue_orchestration_service import dialogue_orchestration_service
-from app.crud.conversation import conversation
-from app.utils.response import success_response, error_response
+from app.services.task_queue_service import task_queue_service
+from app.utils.response import error_response, success_response
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +36,7 @@ router = APIRouter(prefix="/orchestration", tags=["dialogue-orchestration"])
 
 @router.post(
     "/conversations/{conversation_id}/send-message",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def send_message(
     *,
@@ -40,7 +46,7 @@ async def send_message(
     request: SendMessageRequest,
 ):
     """
-    发送消息并获取角色回复
+    发送消息并获取角色回复 - 异步任务版本
 
     Args:
         db: 数据库会话
@@ -49,42 +55,58 @@ async def send_message(
         request: 发送消息请求
 
     Returns:
-        统一格式的响应
+        统一格式的响应，包含任务ID
     """
     try:
-        # 处理用户消息
-        result = await dialogue_orchestration_service.process_user_message(
-            db=db,
-            conversation_id=conversation_id,
-            user_message=request.message,
-            user_id=current_user.id,
-            settings=request.settings,
+        # 验证会话是否存在
+        db_conversation = conversation.get_by_user_and_id(
+            db, id=conversation_id, user_id=current_user.id
+        )
+        if not db_conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在"
+            )
+
+        # 创建文本消息任务
+        task_input = TextMessageTaskInput(
+            message=request.message, enable_tts=True  # 默认启用TTS
         )
 
-        if not result["success"]:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["error"],
-            )
+        task_request = TaskCreateRequest(
+            task_type=TaskType.TEXT_MESSAGE,
+            conversation_id=conversation_id,
+            input_data=task_input.dict(),
+            priority=6,  # 较高优先级
+            task_metadata={
+                "user_id": str(current_user.id),
+                "conversation_id": str(conversation_id),
+                "message_length": len(request.message),
+                "settings": request.settings.dict() if request.settings else None,
+            },
+        )
+
+        # 创建任务
+        task = await task_queue_service.create_task(
+            db=db, user_id=current_user.id, request=task_request
+        )
 
         return success_response(
             data={
-                "success": True,
-                "user_message_id": result["user_message"].id,
-                "character_message_id": result["character_message"].id,
-                "character_response": result["character_response"].content,
-                "audio_url": result["audio_url"],
-                "usage": result["character_response"].usage,
+                "task_id": task.id,
+                "status": task.status,
+                "progress": task.progress,
+                "created_at": task.created_at,
             },
-            msg="消息发送成功",
+            msg="消息发送任务已创建",
         )
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        logger.error(f"发送消息失败: {str(e)}")
+        logger.error(f"创建消息发送任务失败: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="发送消息失败"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建消息发送任务失败",
         )
 
 
