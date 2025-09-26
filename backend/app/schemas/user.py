@@ -1,5 +1,6 @@
 # User schemas for API validation
 from app.models.user import (
+    Gender,
     UpdatePassword,
     UserCreate,
     UserPublic,
@@ -17,4 +18,5 @@ __all__ = [
     "UserUpdateMe",
     "UpdatePassword",
     "UsersPublic",
+    "Gender",
 ]

@@ -41,7 +41,7 @@ def login_access_token(
             user.id, expires_delta=access_token_expires
         )
     )
-    return success_response(data=token.dict(), msg="登录成功")
+    return token.dict()
 
 
 @router.post("/login/test-token")

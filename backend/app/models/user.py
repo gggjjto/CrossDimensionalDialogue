@@ -1,14 +1,24 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, List
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from app.models.item import Item
-    from app.models.conversation import Conversation
     from app.models.character import Character
+    from app.models.conversation import Conversation
+    from app.models.item import Item
+
+
+class Gender(str, Enum):
+    """性别枚举"""
+
+    MALE = "male"  # 男
+    FEMALE = "female"  # 女
+    OTHER = "other"  # 其他
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"  # 不愿透露
 
 
 # Shared properties
@@ -23,6 +33,7 @@ class UserBase(SQLModel):
     bio: str | None = Field(default=None, max_length=1000, description="个人简介")
     location: str | None = Field(default=None, max_length=100, description="所在地")
     website: str | None = Field(default=None, max_length=500, description="个人网站")
+    gender: Gender | None = Field(default=None, description="性别")
 
 
 # Properties to receive via API on creation
@@ -40,6 +51,7 @@ class UserRegister(SQLModel):
     bio: str | None = Field(default=None, max_length=1000, description="个人简介")
     location: str | None = Field(default=None, max_length=100, description="所在地")
     website: str | None = Field(default=None, max_length=500, description="个人网站")
+    gender: Gender | None = Field(default=None, description="性别")
 
 
 # Properties to receive via API on update, all are optional
@@ -57,6 +69,7 @@ class UserUpdateMe(SQLModel):
     bio: str | None = Field(default=None, max_length=1000, description="个人简介")
     location: str | None = Field(default=None, max_length=100, description="所在地")
     website: str | None = Field(default=None, max_length=500, description="个人网站")
+    gender: Gender | None = Field(default=None, description="性别")
 
 
 class UpdatePassword(SQLModel):
