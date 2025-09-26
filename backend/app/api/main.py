@@ -8,7 +8,6 @@ from app.api.routes import (
     private,
     users,
     utils,
-    voice_demo,
     voice_processing,
 )
 from app.core.config import settings
@@ -32,7 +31,6 @@ api_router.include_router(image.router)
 
 # 语音处理
 api_router.include_router(voice_processing.router)
-api_router.include_router(voice_demo.router)
 
 # 工具和项目
 api_router.include_router(utils.router)

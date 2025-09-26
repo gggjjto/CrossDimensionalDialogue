@@ -3,26 +3,26 @@
 包括TTS（文本转语音）和STT（语音转文本）功能
 """
 
+import logging
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlmodel import Session
-
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_current_active_superuser, get_current_user, get_db
 from app.models.user import User
-from app.services.tts_service import tts_service, TTSRequest
-from app.services.stt_service import stt_service, STTRequest
-from app.services.voice_catalog_service import list_voices
-from app.services.dialogue_orchestration_service import dialogue_orchestration_service
-from app.services.qiniu_storage_service import qiniu_storage_service
 from app.schemas.voice_message import (
     VoiceMessageRequest,
     VoiceMessageResponse,
     VoiceUploadResponse,
 )
-from app.utils.response import success_response
-import logging
+from app.services.dialogue_orchestration_service import dialogue_orchestration_service
+from app.services.qiniu_storage_service import qiniu_storage_service
+from app.services.stt_service import STTRequest, stt_service
+from app.services.tts_service import TTSRequest, tts_service
+from app.services.voice_catalog_service import list_voices
+from app.services.voice_demo_service import voice_demo_service
+from app.utils.response import error_response, success_response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,8 @@ async def upload_audio_file(
             )
 
         # 创建临时文件
-        import tempfile
         import os
+        import tempfile
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
