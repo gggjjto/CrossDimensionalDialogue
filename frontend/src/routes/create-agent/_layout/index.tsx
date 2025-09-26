@@ -5,7 +5,7 @@ import { useState } from "react"
 import { GoArrowLeft } from "react-icons/go"
 import { LuArrowRight } from "react-icons/lu"
 
-export const Route = createFileRoute("/create-agent/")({
+export const Route = createFileRoute("/create-agent/_layout/")({
   component: RouteComponent,
 })
 

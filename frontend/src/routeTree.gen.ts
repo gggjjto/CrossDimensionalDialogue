@@ -16,10 +16,10 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
-import { Route as CreateAgentIndexRouteImport } from './routes/create-agent/index'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as IdIndexRouteImport } from './routes/$id/index'
 import { Route as CreateAgentLayoutRouteImport } from './routes/create-agent/_layout'
+import { Route as CreateAgentLayoutIndexRouteImport } from './routes/create-agent/_layout/index'
 import { Route as CreateAgentLayoutSelfRouteImport } from './routes/create-agent/_layout/self'
 import { Route as CreateAgentLayoutIpRouteImport } from './routes/create-agent/_layout/ip'
 
@@ -54,11 +54,6 @@ const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CreateAgentIndexRoute = CreateAgentIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CreateAgentRoute,
-} as any)
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -72,6 +67,11 @@ const IdIndexRoute = IdIndexRouteImport.update({
 const CreateAgentLayoutRoute = CreateAgentLayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => CreateAgentRoute,
+} as any)
+const CreateAgentLayoutIndexRoute = CreateAgentLayoutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CreateAgentLayoutRoute,
 } as any)
 const CreateAgentLayoutSelfRoute = CreateAgentLayoutSelfRouteImport.update({
   id: '/self',
@@ -92,16 +92,16 @@ export interface FileRoutesByFullPath {
   '/create-agent': typeof CreateAgentLayoutRouteWithChildren
   '/$id': typeof IdIndexRoute
   '/': typeof LayoutIndexRoute
-  '/create-agent/': typeof CreateAgentIndexRoute
   '/create-agent/ip': typeof CreateAgentLayoutIpRoute
   '/create-agent/self': typeof CreateAgentLayoutSelfRoute
+  '/create-agent/': typeof CreateAgentLayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/create-agent': typeof CreateAgentIndexRoute
+  '/create-agent': typeof CreateAgentLayoutIndexRoute
   '/$id': typeof IdIndexRoute
   '/': typeof LayoutIndexRoute
   '/create-agent/ip': typeof CreateAgentLayoutIpRoute
@@ -118,9 +118,9 @@ export interface FileRoutesById {
   '/create-agent/_layout': typeof CreateAgentLayoutRouteWithChildren
   '/$id/': typeof IdIndexRoute
   '/_layout/': typeof LayoutIndexRoute
-  '/create-agent/': typeof CreateAgentIndexRoute
   '/create-agent/_layout/ip': typeof CreateAgentLayoutIpRoute
   '/create-agent/_layout/self': typeof CreateAgentLayoutSelfRoute
+  '/create-agent/_layout/': typeof CreateAgentLayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,9 +132,9 @@ export interface FileRouteTypes {
     | '/create-agent'
     | '/$id'
     | '/'
-    | '/create-agent/'
     | '/create-agent/ip'
     | '/create-agent/self'
+    | '/create-agent/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -157,9 +157,9 @@ export interface FileRouteTypes {
     | '/create-agent/_layout'
     | '/$id/'
     | '/_layout/'
-    | '/create-agent/'
     | '/create-agent/_layout/ip'
     | '/create-agent/_layout/self'
+    | '/create-agent/_layout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -216,13 +216,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/create-agent/': {
-      id: '/create-agent/'
-      path: '/'
-      fullPath: '/create-agent/'
-      preLoaderRoute: typeof CreateAgentIndexRouteImport
-      parentRoute: typeof CreateAgentRoute
-    }
     '/_layout/': {
       id: '/_layout/'
       path: '/'
@@ -243,6 +236,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/create-agent'
       preLoaderRoute: typeof CreateAgentLayoutRouteImport
       parentRoute: typeof CreateAgentRoute
+    }
+    '/create-agent/_layout/': {
+      id: '/create-agent/_layout/'
+      path: '/'
+      fullPath: '/create-agent/'
+      preLoaderRoute: typeof CreateAgentLayoutIndexRouteImport
+      parentRoute: typeof CreateAgentLayoutRoute
     }
     '/create-agent/_layout/self': {
       id: '/create-agent/_layout/self'
@@ -275,11 +275,13 @@ const LayoutRouteWithChildren =
 interface CreateAgentLayoutRouteChildren {
   CreateAgentLayoutIpRoute: typeof CreateAgentLayoutIpRoute
   CreateAgentLayoutSelfRoute: typeof CreateAgentLayoutSelfRoute
+  CreateAgentLayoutIndexRoute: typeof CreateAgentLayoutIndexRoute
 }
 
 const CreateAgentLayoutRouteChildren: CreateAgentLayoutRouteChildren = {
   CreateAgentLayoutIpRoute: CreateAgentLayoutIpRoute,
   CreateAgentLayoutSelfRoute: CreateAgentLayoutSelfRoute,
+  CreateAgentLayoutIndexRoute: CreateAgentLayoutIndexRoute,
 }
 
 const CreateAgentLayoutRouteWithChildren =
@@ -287,12 +289,10 @@ const CreateAgentLayoutRouteWithChildren =
 
 interface CreateAgentRouteChildren {
   CreateAgentLayoutRoute: typeof CreateAgentLayoutRouteWithChildren
-  CreateAgentIndexRoute: typeof CreateAgentIndexRoute
 }
 
 const CreateAgentRouteChildren: CreateAgentRouteChildren = {
   CreateAgentLayoutRoute: CreateAgentLayoutRouteWithChildren,
-  CreateAgentIndexRoute: CreateAgentIndexRoute,
 }
 
 const CreateAgentRouteWithChildren = CreateAgentRoute._addFileChildren(

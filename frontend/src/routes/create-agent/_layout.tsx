@@ -1,9 +1,11 @@
 import { Flex } from "@chakra-ui/react"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { SelfAgentProvider } from "@/contexts/SelfAgentContext"
+import NotFound from "@/components/Common/NotFound"
 
 export const Route = createFileRoute("/create-agent/_layout")({
   component: RouteComponent,
+  notFoundComponent: () => <NotFound />,
   beforeLoad: async () => {
     // TODO: 实现真正的鉴权逻辑
     // 现在先暂时允许访问，避免无限重定向

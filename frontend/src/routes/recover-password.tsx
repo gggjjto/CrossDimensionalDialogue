@@ -46,7 +46,7 @@ function RecoverPassword() {
       showSuccessToast("Password recovery email sent successfully.")
       reset()
     },
-    onError: (err) => {
+    onError: (_err) => {
       // TODO: 错误处理
       // handleError(err)
     },
