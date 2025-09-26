@@ -1,44 +1,48 @@
-/*
-  请求参数格式化工具：
-  - 移除 undefined
-  - 将 Date 转为 ISO 字符串
-  - 可选地将 null 移除或保留
-*/
-
-export interface NormalizeOptions {
-  removeNull?: boolean
+export function buildUrlWithParams(
+  url: string,
+  params?: Record<string, unknown>
+): string {
+  if (!params || Object.keys(params).length === 0) return url
+  const usp = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      for (const v of value) usp.append(key, String(v))
+    } else if (typeof value === "object") {
+      usp.set(key, JSON.stringify(value))
+    } else {
+      usp.set(key, String(value))
+    }
+  }
+  const joiner = url.includes("?") ? "&" : "?"
+  return `${url}${joiner}${usp.toString()}`
 }
 
-export function normalizeParams<T extends unknown>(
-  input: T,
-  options: NormalizeOptions = {}
-): T {
-  const { removeNull = false } = options
-
-  const recur = (val: unknown): unknown => {
-    if (val === undefined) return undefined
-    if (val === null) return removeNull ? undefined : null
-    if (val instanceof Date) return val.toISOString()
-
-    if (Array.isArray(val)) {
-      const arr = (val as unknown[])
-        .map((item) => recur(item))
-        .filter((v) => v !== undefined)
-      return arr as unknown
-    }
-
-    if (typeof val === "object") {
-      const obj = val as Record<string, unknown>
-      const out: Record<string, unknown> = {}
-      for (const key of Object.keys(obj)) {
-        const v = recur(obj[key])
-        if (v !== undefined) out[key] = v
-      }
-      return out
-    }
-
-    return val
+export function normalizeRequestBody(
+  body: unknown,
+  headers: Record<string, string>
+): BodyInit | undefined {
+  if (body === undefined || body === null) return undefined
+  const contentType = Object.keys(headers).find(
+    (k) => k.toLowerCase() === "content-type"
+  )
+  const ct = contentType ? headers[contentType] : undefined
+  if (!ct) {
+    // Default to JSON
+    headers["Content-Type"] = "application/json"
+    return JSON.stringify(body)
   }
-
-  return recur(input) as T
+  if (ct.includes("application/json")) {
+    return typeof body === "string" ? (body as string) : JSON.stringify(body)
+  }
+  if (ct.includes("application/x-www-form-urlencoded")) {
+    const usp = new URLSearchParams()
+    Object.entries(body as Record<string, unknown>).forEach(([k, v]) => {
+      if (v === undefined || v === null) return
+      usp.set(k, String(v))
+    })
+    return usp as unknown as BodyInit
+  }
+  // For multipart/form-data the boundary must be set by the browser; if user set it manually, assume body is FormData or already encoded
+  return body as BodyInit
 }

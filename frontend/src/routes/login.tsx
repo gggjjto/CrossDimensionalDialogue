@@ -22,6 +22,7 @@ import { InputGroup } from "@/components/ui/input-group"
 import { PasswordInput } from "@/components/ui/password-input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { emailPattern, passwordRules } from "../utils/rules"
+import { useLogin } from "@/hooks/useLogin"
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -56,15 +57,17 @@ function Login() {
     },
   })
 
+  const { isLoginPending, login } = useLogin()
+
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
     if (isSubmitting) return
 
     resetError()
 
     try {
-      await loginMutation.mutateAsync(data)
+      await login({ username: data.email, password: data.password })
     } catch {
-      // 错误由 useAuth hook 处理
+      // 错误由 useLogin hook 处理
     }
   }
 
@@ -125,7 +128,7 @@ function Login() {
             w={"full"}
             variant="solid"
             type="submit"
-            loading={loginMutation.isPending}
+            loading={isLoginPending}
             loadingText="登录中..."
           >
             登录 <LuArrowRight style={{ marginLeft: 4 }} />

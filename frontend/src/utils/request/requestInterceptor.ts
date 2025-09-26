@@ -1,50 +1,41 @@
-import type { InternalAxiosRequestConfig, AxiosHeaders } from "axios"
-import { normalizeParams } from "./paramFormatter"
-import type { RequestConfig } from "./types"
-import { pendingRequestManager } from "./pendingManager"
+/**
+ * 请求拦截器管理器
+ * - 在真正发起 fetch 之前，允许统一修改请求上下文
+ * - 常见用途：基础 baseUrl、统一请求头、鉴权 Token、追踪 ID 等
+ */
+import type { RequestContext } from "./types"
 
-// 默认获取token的方法，允许在外部替换注入
-let getToken: () => string | null = () => {
-  try {
-    return localStorage.getItem("access_token")
-  } catch {
-    return null
+export type RequestInterceptorFn = (
+  ctx: RequestContext
+) => Promise<RequestContext> | RequestContext
+
+class RequestInterceptorManager {
+  private readonly handlers = new Map<
+    number,
+    { onFulfilled: RequestInterceptorFn; onRejected?: (error: unknown) => any }
+  >()
+  private idSeq = 0
+
+  use(
+    onFulfilled: RequestInterceptorFn,
+    onRejected?: (error: unknown) => any
+  ): number {
+    const id = ++this.idSeq
+    this.handlers.set(id, { onFulfilled, onRejected })
+    return id
   }
-}
 
-export function setTokenGetter(fn: () => string | null) {
-  getToken = fn
-}
+  eject(id: number): void {
+    this.handlers.delete(id)
+  }
 
-export function onRequest(
-  config: InternalAxiosRequestConfig
-): InternalAxiosRequestConfig {
-  const cfg = config as RequestConfig
-
-  // 参数格式化
-  if (cfg.params) cfg.params = normalizeParams(cfg.params)
-  if (cfg.data && typeof cfg.data === "object")
-    cfg.data = normalizeParams(cfg.data)
-
-  // 注入认证头
-  if (cfg.withAuth !== false) {
-    const token = getToken()
-    if (token) {
-      const headers = cfg.headers as AxiosHeaders | Record<string, string>
-      if (typeof (headers as any).set === "function") {
-        ;(headers as any).set("Authorization", `Bearer ${token}`)
-      } else {
-        ;(headers as Record<string, string>)[
-          "Authorization"
-        ] = `Bearer ${token}`
-      }
+  async run(ctx: RequestContext): Promise<RequestContext> {
+    let result = ctx
+    for (const { onFulfilled } of this.handlers.values()) {
+      result = await onFulfilled(result)
     }
+    return result
   }
-
-  // 去重与取消：仅当 preventDuplicate !== false 时生效
-  if (cfg.preventDuplicate !== false) {
-    pendingRequestManager.add(cfg)
-  }
-
-  return cfg
 }
+
+export const requestInterceptors = new RequestInterceptorManager()

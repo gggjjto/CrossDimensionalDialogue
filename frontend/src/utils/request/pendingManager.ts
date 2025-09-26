@@ -1,58 +1,55 @@
-import type { PendingRequestRecord, RequestConfig } from "./types"
 import { buildRequestKey } from "./requestKey"
+import type { RequestContext } from "./types"
 
-// 管理挂起请求：支持去重与取消
-export class PendingRequestManager {
-  private readonly map = new Map<string, PendingRequestRecord>()
+export class PendingManager {
+  private readonly keyToController = new Map<string, AbortController>()
+  private readonly keyToPromise = new Map<string, Promise<any>>()
 
-  public add(config: RequestConfig): string {
-    const key =
-      config.cancelKey ||
-      buildRequestKey({
-        method: config.method,
-        url: config.url,
-        params: config.params,
-        data: config.data,
-      })
-
-    if (this.map.has(key)) {
-      // 已有相同请求，取消新请求
-      const existing = this.map.get(key)!
-      existing.controller.abort("duplicate-request")
-      this.map.delete(key)
-    }
-
-    const controller = new AbortController()
-    this.map.set(key, {
-      controller,
-      timestamp: Date.now(),
+  createKey(ctx: RequestContext): string {
+    // Use user-provided key if present; otherwise derive a stable key from request parts
+    if (ctx.cancelKey) return ctx.cancelKey
+    return buildRequestKey({
+      method: ctx.method,
+      url: ctx.url,
+      params: ctx.params,
+      body: ctx.body,
     })
-
-    // 将 signal 合并到 config
-    config.signal = config.signal ?? controller.signal
-
-    return key
   }
 
-  public remove(key: string): void {
-    const record = this.map.get(key)
-    if (!record) return
-    this.map.delete(key)
+  getPromise<T = any>(key?: string): Promise<T> | undefined {
+    if (!key) return undefined
+    return this.keyToPromise.get(key) as Promise<T> | undefined
   }
 
-  public cancel(key: string, reason?: string): void {
-    const record = this.map.get(key)
-    if (!record) return
-    record.controller.abort(reason)
-    this.map.delete(key)
+  setPromise(key: string, promise: Promise<any>): void {
+    this.keyToPromise.set(key, promise)
+    promise.finally(() => {
+      this.keyToPromise.delete(key)
+    })
   }
 
-  public cancelAll(reason?: string): void {
-    for (const [key, record] of this.map) {
-      record.controller.abort(reason)
-      this.map.delete(key)
+  attachController(ctx: RequestContext): AbortSignal | undefined {
+    const key = this.createKey(ctx)
+    if (ctx.cancelPrevious) {
+      this.abort(key)
     }
+    const controller = new AbortController()
+    this.keyToController.set(key, controller)
+    return controller.signal
+  }
+
+  abort(key: string): void {
+    const controller = this.keyToController.get(key)
+    if (controller) {
+      controller.abort()
+      this.keyToController.delete(key)
+    }
+  }
+
+  clear(key: string | undefined): void {
+    if (!key) return
+    this.keyToController.delete(key)
   }
 }
 
-export const pendingRequestManager = new PendingRequestManager()
+export const pendingManager = new PendingManager()
