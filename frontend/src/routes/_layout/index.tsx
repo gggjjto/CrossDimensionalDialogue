@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CiSearch } from "react-icons/ci"
 import { BsChatDots, BsHeart } from "react-icons/bs"
 
-import IndexAside from "@/components/index/Aside"
+import IndexAside from "@/components/Common/Aside"
 import { InputGroup } from "@/components/ui/input-group"
 import MasonryGrid from "@/components/index/MasonryGrid"
 

@@ -17,18 +17,26 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
-import { Route as CreateAgentIndexRouteImport } from './routes/create-agent/index'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
-import { Route as IdIndexRouteImport } from './routes/$id/index'
 import { Route as CreateAgentLayoutRouteImport } from './routes/create-agent/_layout'
+import { Route as IdLayoutRouteImport } from './routes/$id/_layout'
+import { Route as CreateAgentLayoutIndexRouteImport } from './routes/create-agent/_layout/index'
+import { Route as IdLayoutIndexRouteImport } from './routes/$id/_layout/index'
 import { Route as CreateAgentLayoutSelfRouteImport } from './routes/create-agent/_layout/self'
 import { Route as CreateAgentLayoutIpRouteImport } from './routes/create-agent/_layout/ip'
+import { Route as IdLayoutPhoneRouteImport } from './routes/$id/_layout/phone'
 
 const CreateAgentRouteImport = createFileRoute('/create-agent')()
+const IdRouteImport = createFileRoute('/$id')()
 
 const CreateAgentRoute = CreateAgentRouteImport.update({
   id: '/create-agent',
   path: '/create-agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdRoute = IdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UserRoute = UserRouteImport.update({
@@ -60,24 +68,28 @@ const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CreateAgentIndexRoute = CreateAgentIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CreateAgentRoute,
-} as any)
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
-const IdIndexRoute = IdIndexRouteImport.update({
-  id: '/$id/',
-  path: '/$id/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CreateAgentLayoutRoute = CreateAgentLayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => CreateAgentRoute,
+} as any)
+const IdLayoutRoute = IdLayoutRouteImport.update({
+  id: '/_layout',
+  getParentRoute: () => IdRoute,
+} as any)
+const CreateAgentLayoutIndexRoute = CreateAgentLayoutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CreateAgentLayoutRoute,
+} as any)
+const IdLayoutIndexRoute = IdLayoutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => IdLayoutRoute,
 } as any)
 const CreateAgentLayoutSelfRoute = CreateAgentLayoutSelfRouteImport.update({
   id: '/self',
@@ -89,6 +101,11 @@ const CreateAgentLayoutIpRoute = CreateAgentLayoutIpRouteImport.update({
   path: '/ip',
   getParentRoute: () => CreateAgentLayoutRoute,
 } as any)
+const IdLayoutPhoneRoute = IdLayoutPhoneRouteImport.update({
+  id: '/phone',
+  path: '/phone',
+  getParentRoute: () => IdLayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
@@ -96,12 +113,14 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/user': typeof UserRoute
+  '/$id': typeof IdLayoutRouteWithChildren
   '/create-agent': typeof CreateAgentLayoutRouteWithChildren
-  '/$id': typeof IdIndexRoute
   '/': typeof LayoutIndexRoute
-  '/create-agent/': typeof CreateAgentIndexRoute
+  '/$id/phone': typeof IdLayoutPhoneRoute
   '/create-agent/ip': typeof CreateAgentLayoutIpRoute
   '/create-agent/self': typeof CreateAgentLayoutSelfRoute
+  '/$id/': typeof IdLayoutIndexRoute
+  '/create-agent/': typeof CreateAgentLayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -109,9 +128,10 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/user': typeof UserRoute
-  '/create-agent': typeof CreateAgentIndexRoute
-  '/$id': typeof IdIndexRoute
+  '/$id': typeof IdLayoutIndexRoute
+  '/create-agent': typeof CreateAgentLayoutIndexRoute
   '/': typeof LayoutIndexRoute
+  '/$id/phone': typeof IdLayoutPhoneRoute
   '/create-agent/ip': typeof CreateAgentLayoutIpRoute
   '/create-agent/self': typeof CreateAgentLayoutSelfRoute
 }
@@ -123,13 +143,16 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/user': typeof UserRoute
+  '/$id': typeof IdRouteWithChildren
+  '/$id/_layout': typeof IdLayoutRouteWithChildren
   '/create-agent': typeof CreateAgentRouteWithChildren
   '/create-agent/_layout': typeof CreateAgentLayoutRouteWithChildren
-  '/$id/': typeof IdIndexRoute
   '/_layout/': typeof LayoutIndexRoute
-  '/create-agent/': typeof CreateAgentIndexRoute
+  '/$id/_layout/phone': typeof IdLayoutPhoneRoute
   '/create-agent/_layout/ip': typeof CreateAgentLayoutIpRoute
   '/create-agent/_layout/self': typeof CreateAgentLayoutSelfRoute
+  '/$id/_layout/': typeof IdLayoutIndexRoute
+  '/create-agent/_layout/': typeof CreateAgentLayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,12 +162,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/user'
-    | '/create-agent'
     | '/$id'
+    | '/create-agent'
     | '/'
-    | '/create-agent/'
+    | '/$id/phone'
     | '/create-agent/ip'
     | '/create-agent/self'
+    | '/$id/'
+    | '/create-agent/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -152,9 +177,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/user'
-    | '/create-agent'
     | '/$id'
+    | '/create-agent'
     | '/'
+    | '/$id/phone'
     | '/create-agent/ip'
     | '/create-agent/self'
   id:
@@ -165,13 +191,16 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/user'
+    | '/$id'
+    | '/$id/_layout'
     | '/create-agent'
     | '/create-agent/_layout'
-    | '/$id/'
     | '/_layout/'
-    | '/create-agent/'
+    | '/$id/_layout/phone'
     | '/create-agent/_layout/ip'
     | '/create-agent/_layout/self'
+    | '/$id/_layout/'
+    | '/create-agent/_layout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -181,8 +210,8 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   UserRoute: typeof UserRoute
+  IdRoute: typeof IdRouteWithChildren
   CreateAgentRoute: typeof CreateAgentRouteWithChildren
-  IdIndexRoute: typeof IdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/create-agent'
       fullPath: '/create-agent'
       preLoaderRoute: typeof CreateAgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$id': {
+      id: '/$id'
+      path: '/$id'
+      fullPath: '/$id'
+      preLoaderRoute: typeof IdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/user': {
@@ -236,13 +272,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/create-agent/': {
-      id: '/create-agent/'
-      path: '/'
-      fullPath: '/create-agent/'
-      preLoaderRoute: typeof CreateAgentIndexRouteImport
-      parentRoute: typeof CreateAgentRoute
-    }
     '/_layout/': {
       id: '/_layout/'
       path: '/'
@@ -250,19 +279,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/$id/': {
-      id: '/$id/'
-      path: '/$id'
-      fullPath: '/$id'
-      preLoaderRoute: typeof IdIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/create-agent/_layout': {
       id: '/create-agent/_layout'
       path: '/create-agent'
       fullPath: '/create-agent'
       preLoaderRoute: typeof CreateAgentLayoutRouteImport
       parentRoute: typeof CreateAgentRoute
+    }
+    '/$id/_layout': {
+      id: '/$id/_layout'
+      path: '/$id'
+      fullPath: '/$id'
+      preLoaderRoute: typeof IdLayoutRouteImport
+      parentRoute: typeof IdRoute
+    }
+    '/create-agent/_layout/': {
+      id: '/create-agent/_layout/'
+      path: '/'
+      fullPath: '/create-agent/'
+      preLoaderRoute: typeof CreateAgentLayoutIndexRouteImport
+      parentRoute: typeof CreateAgentLayoutRoute
+    }
+    '/$id/_layout/': {
+      id: '/$id/_layout/'
+      path: '/'
+      fullPath: '/$id/'
+      preLoaderRoute: typeof IdLayoutIndexRouteImport
+      parentRoute: typeof IdLayoutRoute
     }
     '/create-agent/_layout/self': {
       id: '/create-agent/_layout/self'
@@ -278,6 +321,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateAgentLayoutIpRouteImport
       parentRoute: typeof CreateAgentLayoutRoute
     }
+    '/$id/_layout/phone': {
+      id: '/$id/_layout/phone'
+      path: '/phone'
+      fullPath: '/$id/phone'
+      preLoaderRoute: typeof IdLayoutPhoneRouteImport
+      parentRoute: typeof IdLayoutRoute
+    }
   }
 }
 
@@ -292,14 +342,40 @@ const LayoutRouteChildren: LayoutRouteChildren = {
 const LayoutRouteWithChildren =
   LayoutRoute._addFileChildren(LayoutRouteChildren)
 
+interface IdLayoutRouteChildren {
+  IdLayoutPhoneRoute: typeof IdLayoutPhoneRoute
+  IdLayoutIndexRoute: typeof IdLayoutIndexRoute
+}
+
+const IdLayoutRouteChildren: IdLayoutRouteChildren = {
+  IdLayoutPhoneRoute: IdLayoutPhoneRoute,
+  IdLayoutIndexRoute: IdLayoutIndexRoute,
+}
+
+const IdLayoutRouteWithChildren = IdLayoutRoute._addFileChildren(
+  IdLayoutRouteChildren,
+)
+
+interface IdRouteChildren {
+  IdLayoutRoute: typeof IdLayoutRouteWithChildren
+}
+
+const IdRouteChildren: IdRouteChildren = {
+  IdLayoutRoute: IdLayoutRouteWithChildren,
+}
+
+const IdRouteWithChildren = IdRoute._addFileChildren(IdRouteChildren)
+
 interface CreateAgentLayoutRouteChildren {
   CreateAgentLayoutIpRoute: typeof CreateAgentLayoutIpRoute
   CreateAgentLayoutSelfRoute: typeof CreateAgentLayoutSelfRoute
+  CreateAgentLayoutIndexRoute: typeof CreateAgentLayoutIndexRoute
 }
 
 const CreateAgentLayoutRouteChildren: CreateAgentLayoutRouteChildren = {
   CreateAgentLayoutIpRoute: CreateAgentLayoutIpRoute,
   CreateAgentLayoutSelfRoute: CreateAgentLayoutSelfRoute,
+  CreateAgentLayoutIndexRoute: CreateAgentLayoutIndexRoute,
 }
 
 const CreateAgentLayoutRouteWithChildren =
@@ -307,12 +383,10 @@ const CreateAgentLayoutRouteWithChildren =
 
 interface CreateAgentRouteChildren {
   CreateAgentLayoutRoute: typeof CreateAgentLayoutRouteWithChildren
-  CreateAgentIndexRoute: typeof CreateAgentIndexRoute
 }
 
 const CreateAgentRouteChildren: CreateAgentRouteChildren = {
   CreateAgentLayoutRoute: CreateAgentLayoutRouteWithChildren,
-  CreateAgentIndexRoute: CreateAgentIndexRoute,
 }
 
 const CreateAgentRouteWithChildren = CreateAgentRoute._addFileChildren(
@@ -326,8 +400,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   UserRoute: UserRoute,
+  IdRoute: IdRouteWithChildren,
   CreateAgentRoute: CreateAgentRouteWithChildren,
-  IdIndexRoute: IdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

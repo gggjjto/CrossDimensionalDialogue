@@ -57,7 +57,7 @@ function ResetPassword() {
       reset()
       navigate({ to: "/login" })
     },
-    onError: (err) => {
+    onError: (_err) => {
       // TODO: 错误处理
       // handleError(err)
     },

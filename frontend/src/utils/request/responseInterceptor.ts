@@ -1,102 +1,66 @@
-import type { AxiosError, AxiosResponse } from "axios"
-import { pendingRequestManager } from "./pendingManager"
-import type { ApiResponse, RequestConfig } from "./types"
-import { buildRequestKey } from "./requestKey"
-import { RequestError } from "./types"
+/**
+ * 响应拦截器管理器
+ * - 负责在成功解析响应数据之后，执行用户注册的响应拦截器
+ * - 支持 onRejected：在请求抛错或解析失败时统一处理错误（如登录过期、全局提示等）
+ */
+import type { RequestContext } from "./types"
 
-// 未授权回调，由主入口注入
-let onUnauthorized: (() => void) | undefined
-export function setUnauthorizedHandler(handler?: () => void) {
-  onUnauthorized = handler
-}
+export type ResponseFulfilledFn<T = any> = (
+  data: T,
+  response: Response,
+  ctx: RequestContext
+) => Promise<T> | T
+export type ResponseRejectedFn = (
+  error: unknown,
+  response?: Response,
+  ctx?: RequestContext
+) => Promise<never> | never
 
-export function onResponse(response: AxiosResponse): any {
-  const cfg = response.config as RequestConfig
-  // 清理 pending
-  const key =
-    cfg.cancelKey ||
-    buildRequestKey({
-      method: cfg.method,
-      url: cfg.url,
-      params: cfg.params,
-      data: cfg.data,
-    })
-  pendingRequestManager.remove(key)
+class ResponseInterceptorManager<T = any> {
+  private readonly handlers = new Map<
+    number,
+    { onFulfilled: ResponseFulfilledFn<T>; onRejected?: ResponseRejectedFn }
+  >()
+  private idSeq = 0
 
-  // 统一转化
-  const shouldTransform = cfg.transformResponse !== false
-  if (!shouldTransform) return response
+  use(
+    onFulfilled: ResponseFulfilledFn<T>,
+    onRejected?: ResponseRejectedFn
+  ): number {
+    const id = ++this.idSeq
+    this.handlers.set(id, { onFulfilled, onRejected })
+    return id
+  }
 
-  const payload = response.data as ApiResponse
-  // 若后端非统一格式，直接返回 data
-  if (
-    payload &&
-    typeof payload === "object" &&
-    "code" in payload &&
-    "data" in payload
-  ) {
-    if (payload.code === 0) {
-      return payload.data
+  eject(id: number): void {
+    this.handlers.delete(id)
+  }
+
+  async run(data: T, response: Response, ctx: RequestContext): Promise<T> {
+    let result = data
+    for (const { onFulfilled } of this.handlers.values()) {
+      result = await onFulfilled(result, response, ctx)
     }
-    // 后端错误码
-    throw new RequestError({
-      message: payload.msg || "请求失败",
-      code: payload.code,
-      status: response.status,
-      details: payload.data,
-    })
+    return result
   }
 
-  return response.data
+  /**
+   * 依次调用所有注册的 onRejected，用于统一错误处理
+   * 约定：onRejected 应当抛出错误（或返回 rejected promise）以中断后续链路
+   */
+  async runRejected(
+    error: unknown,
+    response?: Response,
+    ctx?: RequestContext
+  ): Promise<never> {
+    for (const { onRejected } of this.handlers.values()) {
+      if (onRejected) {
+        await onRejected(error, response, ctx)
+      }
+    }
+    // 如果所有 onRejected 都未抛错，则在此统一抛出原始错误
+    throw error as any
+  }
 }
 
-export function onResponseError(error: AxiosError): never {
-  const cfg = (error.config || {}) as RequestConfig
-
-  // 清理 pending
-  if (cfg.url) {
-    const key =
-      cfg.cancelKey ||
-      buildRequestKey({
-        method: cfg.method,
-        url: cfg.url,
-        params: cfg.params,
-        data: cfg.data,
-      })
-    pendingRequestManager.remove(key)
-  }
-
-  // 取消请求
-  if (error.code === "ERR_CANCELED") {
-    throw new RequestError({ message: "请求已取消", isNetworkError: false })
-  }
-
-  // 网络错误/超时
-  if (!error.response) {
-    const isTimeout = (error as any).code === "ECONNABORTED"
-    throw new RequestError({
-      message: isTimeout ? "请求超时" : "网络错误",
-      isNetworkError: !isTimeout,
-      isTimeout,
-    })
-  }
-
-  const status = error.response.status
-  const data = error.response.data as any
-
-  if (status === 401 && onUnauthorized) {
-    onUnauthorized()
-  }
-
-  // 后端统一结构错误
-  if (data && typeof data === "object" && "code" in data && "msg" in data) {
-    throw new RequestError({
-      message: data.msg || "请求失败",
-      status,
-      code: data.code,
-      details: data.data,
-    })
-  }
-
-  throw new RequestError({ message: error.message, status })
-}
+export const responseInterceptors = new ResponseInterceptorManager()

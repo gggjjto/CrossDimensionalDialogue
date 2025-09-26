@@ -6,9 +6,11 @@ import {
 } from "@tanstack/react-query"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
+
 import ReactDOM from "react-dom/client"
 import { CustomProvider } from "./components/ui/provider"
 import { routeTree } from "./routeTree.gen"
+import "@/utils/request/setup"
 
 const queryClient = new QueryClient({
   // TODO: 错误处理
