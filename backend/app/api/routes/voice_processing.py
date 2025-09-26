@@ -324,3 +324,40 @@ async def speech_to_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="语音转文本失败"
         )
+
+
+@router.post("/generate-all")
+async def generate_all_voice_demos(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_superuser),
+    provider: str = Query("qwen3-tts", description="音色提供方"),
+    force_regenerate: bool = Query(False, description="是否强制重新生成"),
+):
+    """
+    为所有音色生成示例语音
+
+    需要超级用户权限
+    """
+    try:
+        result = await voice_demo_service.generate_demo_audio_for_all_voices(
+            session=db, provider=provider, force_regenerate=force_regenerate
+        )
+
+        if result["success"]:
+            return success_response(
+                data=result,
+                msg=f"音色示例语音生成完成: 成功 {result['success_count']}, 失败 {result['failed_count']}, 跳过 {result['skipped_count']}",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "生成失败"),
+            )
+
+    except Exception as e:
+        logger.error(f"生成音色示例语音失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成音色示例语音失败: {str(e)}",
+        )

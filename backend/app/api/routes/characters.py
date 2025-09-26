@@ -39,7 +39,9 @@ async def create_character(
     # 检查角色名称是否已存在
     existing_character = character.get_by_name(db, name=character_in.name)
     if existing_character:
-        logger.warning("用户 %s 创建的角色名称 %s 已存在", current_user.email, character_in.name)
+        logger.warning(
+            "用户 %s 创建的角色名称 %s 已存在", current_user.email, character_in.name
+        )
         raise HTTPException(status_code=400, detail="角色名称已存在")
 
     # 验证标签ID是否存在
@@ -75,10 +77,17 @@ async def create_character(
 
                 # 更新角色的头像URL
                 character_obj.avatar_url = upload_result["url"]
-                db.commit()
-                db.refresh(character_obj)
+                try:
+                    db.commit()
+                    db.refresh(character_obj)
+                except Exception as db_error:
+                    db.rollback()
+                    logger.warning("更新角色头像URL到数据库失败: %s", str(db_error))
+                    raise
         except Exception as e:
-            logger.warning("用户 %s 生成角色AI形象图片失败: %s", current_user.email, str(e))
+            logger.warning(
+                "用户 %s 生成角色AI形象图片失败: %s", current_user.email, str(e)
+            )
 
     return success_response(data=character_obj.model_dump(), msg="角色创建成功")
 
@@ -108,25 +117,31 @@ async def search_characters(
         is_active=is_active,
     )
 
-    if search_type == "text":
-        result = character_embedding_crud.text_search_characters(db, search_request)
-    elif search_type == "vector":
-        # 生成查询向量
-        query_embedding = await embedding_service.generate_embedding(query)
-        result = character_embedding_crud.vector_search_characters(
-            db, search_request, query_embedding
-        )
-    elif search_type == "hybrid":
-        # 生成查询向量
-        query_embedding = await embedding_service.generate_embedding(query)
-        result = character_embedding_crud.hybrid_search_characters(
-            db, search_request, query_embedding
-        )
-    else:
-        logger.warning("不支持的搜索类型: %s", search_type)
-        raise HTTPException(status_code=400, detail="不支持的搜索类型")
+    try:
+        if search_type == "text":
+            result = character_embedding_crud.text_search_characters(db, search_request)
+        elif search_type == "vector":
+            # 生成查询向量
+            query_embedding = await embedding_service.generate_embedding(query)
+            result = character_embedding_crud.vector_search_characters(
+                db, search_request, query_embedding
+            )
+        elif search_type == "hybrid":
+            # 生成查询向量
+            query_embedding = await embedding_service.generate_embedding(query)
+            result = character_embedding_crud.hybrid_search_characters(
+                db, search_request, query_embedding
+            )
+        else:
+            logger.warning("不支持的搜索类型: %s", search_type)
+            raise HTTPException(status_code=400, detail="不支持的搜索类型")
 
-    return success_response(data=result.model_dump(), msg="搜索完成")
+        return success_response(data=result.model_dump(), msg="搜索完成")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("搜索角色失败: %s", str(e))
+        raise HTTPException(status_code=500, detail="搜索角色失败")
 
 
 @router.get("/")
@@ -465,8 +480,13 @@ async def generate_character_image(
 
             # 更新角色的头像URL
             character_obj.avatar_url = upload_result["url"]
-            db.commit()
-            db.refresh(character_obj)
+            try:
+                db.commit()
+                db.refresh(character_obj)
+            except Exception as db_error:
+                db.rollback()
+                logger.warning("更新角色头像URL到数据库失败: %s", str(db_error))
+                raise HTTPException(status_code=500, detail="更新角色头像URL失败")
 
             return success_response(
                 data={

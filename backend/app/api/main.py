@@ -1,15 +1,18 @@
-from fastapi import APIRouter
-from app.api.routes.characters import characters
-from app.api.routes.conversations import conversations
-from app.api.routes.users import users
-from app.api.routes.login import login
-from app.api.routes.utils import utils
-from app.api.routes.dialogue import dialogue_orchestration
-from app.api.routes.image import image
-from app.api.routes.voice import voice_processing, voice_demo
-
-from app.api.routes import items, private
+from app.api.routes import (
+    characters,
+    conversations,
+    dialogue_orchestration,
+    image,
+    items,
+    login,
+    private,
+    users,
+    utils,
+    voice_demo,
+    voice_processing,
+)
 from app.core.config import settings
+from fastapi import APIRouter
 
 api_router = APIRouter()
 
