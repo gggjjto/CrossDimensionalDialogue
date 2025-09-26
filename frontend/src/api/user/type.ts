@@ -2,6 +2,7 @@
 export interface LoginCredentials {
   username: string
   password: string
+  // grant_type?: string
 }
 
 /** 登录响应 */
