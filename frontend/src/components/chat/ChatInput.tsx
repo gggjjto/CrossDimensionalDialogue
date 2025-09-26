@@ -2,12 +2,13 @@ import { useEffect, useRef } from "react"
 import { Box, VStack, Textarea, HStack, IconButton } from "@chakra-ui/react"
 import { LuPhone, LuSend } from "react-icons/lu"
 import { GrMicrophone } from "react-icons/gr"
+import { useNavigate, useParams } from "@tanstack/react-router"
 
 type ChatInputProps = {
   value: string
   onChange: (value: string) => void
-  onSend: () => void
-  onVoiceClick?: () => void
+  onSend: VoidFunction
+  onVoiceClick?: VoidFunction
   placeholder?: string
   minHeightPx?: number
   maxHeightPx?: number
@@ -23,6 +24,8 @@ export default function ChatInput({
   maxHeightPx = 200,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const navigate = useNavigate()
+  const { id } = useParams({ from: "/$id/_layout" })
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current
@@ -98,7 +101,9 @@ export default function ChatInput({
             color="accent.foreground"
             size="sm"
             border={"1px solid rgba(255,255,255,0.2)"}
-            onClick={onVoiceClick}
+            onClick={() => {
+              navigate({ to: "/$id/phone", params: { id: id } })
+            }}
             _hover={{ bg: "rgba(255,255,255,0.1)" }}
           >
             <LuPhone />

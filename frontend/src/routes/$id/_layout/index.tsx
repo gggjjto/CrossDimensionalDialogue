@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Box, Flex, Text, IconButton, Image } from "@chakra-ui/react"
 import { useState } from "react"
-import ChatInput from "../../components/chat/ChatInput"
-import ChatList from "../../components/chat/ChatList"
-import SideDrawer from "../../components/Common/SideDrawer"
 
-export const Route = createFileRoute("/$id/")({
+import ChatInput from "../../../components/chat/ChatInput"
+import ChatList from "../../../components/chat/ChatList"
+import SideDrawer from "../../../components/Common/SideDrawer"
+
+export const Route = createFileRoute("/$id/_layout/")({
   component: RouteComponent,
 })
 
