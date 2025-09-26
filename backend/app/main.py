@@ -1,9 +1,6 @@
-import logging
-
 import sentry_sdk
 from app.api.main import api_router
 from app.core.config import settings
-from app.core.logger import get_logger
 from app.middleware.exception_handler import setup_exception_handlers
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
