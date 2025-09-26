@@ -3,26 +3,26 @@
 包括TTS（文本转语音）和STT（语音转文本）功能
 """
 
+import logging
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlmodel import Session
-
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_current_active_superuser, get_current_user, get_db
 from app.models.user import User
-from app.services.tts_service import tts_service, TTSRequest
-from app.services.stt_service import stt_service, STTRequest
-from app.services.voice_catalog_service import list_voices
-from app.services.dialogue_orchestration_service import dialogue_orchestration_service
-from app.services.qiniu_storage_service import qiniu_storage_service
 from app.schemas.voice_message import (
     VoiceMessageRequest,
     VoiceMessageResponse,
     VoiceUploadResponse,
 )
-from app.utils.response import success_response
-import logging
+from app.services.dialogue_orchestration_service import dialogue_orchestration_service
+from app.services.qiniu_storage_service import qiniu_storage_service
+from app.services.stt_service import STTRequest, stt_service
+from app.services.tts_service import TTSRequest, tts_service
+from app.services.voice_catalog_service import list_voices
+from app.services.voice_demo_service import voice_demo_service
+from app.utils.response import error_response, success_response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,8 @@ async def upload_audio_file(
             )
 
         # 创建临时文件
-        import tempfile
         import os
+        import tempfile
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -323,4 +323,41 @@ async def speech_to_text(
         logger.error(f"语音转文本失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="语音转文本失败"
+        )
+
+
+@router.post("/generate-all")
+async def generate_all_voice_demos(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_superuser),
+    provider: str = Query("qwen3-tts", description="音色提供方"),
+    force_regenerate: bool = Query(False, description="是否强制重新生成"),
+):
+    """
+    为所有音色生成示例语音
+
+    需要超级用户权限
+    """
+    try:
+        result = await voice_demo_service.generate_demo_audio_for_all_voices(
+            session=db, provider=provider, force_regenerate=force_regenerate
+        )
+
+        if result["success"]:
+            return success_response(
+                data=result,
+                msg=f"音色示例语音生成完成: 成功 {result['success_count']}, 失败 {result['failed_count']}, 跳过 {result['skipped_count']}",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "生成失败"),
+            )
+
+    except Exception as e:
+        logger.error(f"生成音色示例语音失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成音色示例语音失败: {str(e)}",
         )

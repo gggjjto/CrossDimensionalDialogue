@@ -41,6 +41,28 @@ def login_access_token(
             user.id, expires_delta=access_token_expires
         )
     )
+    return token.dict()
+
+@router.post("/login/access-token-v2")
+def login_access_token_v2(
+    session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+):
+    """
+    OAuth2兼容的令牌登录，获取访问令牌用于后续请求
+    """
+    user = crud_user.authenticate(
+        session=session, email=form_data.username, password=form_data.password
+    )
+    if not user:
+        raise HTTPException(status_code=400, detail="邮箱或密码错误")
+    elif not user.is_active:
+        raise HTTPException(status_code=400, detail="用户账户未激活")
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    token = Token(
+        access_token=security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        )
+    )
     return success_response(data=token.dict(), msg="登录成功")
 
 

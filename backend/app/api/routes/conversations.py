@@ -1,46 +1,42 @@
-import uuid
 import logging
+import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlmodel import Session
-from sqlalchemy.exc import IntegrityError
-from app.crud.character import character
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.services.llm_service import llm_service
+from app.crud.character import character
 from app.schemas.character import CharacterGenerateRequest, CharacterGenerateResponse
+from app.services.llm_service import llm_service
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import status as http_status
+from sqlmodel import Session
 
 # 配置日志
 logger = logging.getLogger(__name__)
-from app.crud.conversation import (
-    conversation,
-    message,
-    user_conversation_limit,
-)
+from app.crud.conversation import conversation, message, user_conversation_limit
+from app.models.conversation import ConversationStatus
 from app.models.user import User
 from app.schemas.conversation import (
-    ConversationCreate,
-    ConversationUpdate,
-    ConversationPublic,
-    ConversationWithDetails,
-    ConversationListResponse,
-    ConversationSearchRequest,
-    MessageCreate,
-    MessagePublic,
-    MessageListResponse,
-    SenderType,
     ContentType,
+    ConversationCreate,
+    ConversationListResponse,
+    ConversationPublic,
+    ConversationSearchRequest,
+    ConversationUpdate,
+    ConversationWithDetails,
+    MessageCreate,
+    MessageListResponse,
+    MessagePublic,
+    SenderType,
 )
-from app.models.conversation import ConversationStatus
-from app.utils.response import success_response, error_response
+from app.utils.response import error_response, success_response
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 # 会话管理端点
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=http_status.HTTP_201_CREATED)
 async def create_conversation(
     *,
     db: Session = Depends(get_db),
@@ -53,7 +49,7 @@ async def create_conversation(
         character_obj = character.get(db, id=conversation_in.character_id)
         if not character_obj:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail=f"角色不存在: {conversation_in.character_id}",
             )
 
@@ -67,10 +63,10 @@ async def create_conversation(
     # 目前最大会话数量限制为10
     max_conversations_limit = settings.MAX_CONVERSATIONS_LIMIT
 
-    if max_conversations_limit and user_conversation_count > max_conversations_limit:
+    if max_conversations_limit and user_conversation_count >= max_conversations_limit:
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"已达到最大会话数量限制: {max_conversations_limit.limit_value}",
+            status_code=http_status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"已达到最大会话数量限制: {max_conversations_limit}",
         )
 
     # 创建会话
@@ -103,49 +99,57 @@ async def get_conversations(
             conversation_status = ConversationStatus(status)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail=f"无效的会话状态: {status}",
             )
 
     # 验证排序参数
     if order_by not in ["created_at", "last_message_at", "updated_at", "title"]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的排序字段"
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail="不支持的排序字段"
         )
 
     if order not in ["asc", "desc"]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="排序方向必须是asc或desc"
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="排序方向必须是asc或desc",
         )
 
-    conversations, total = conversation.get_multi(
-        db,
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        status=conversation_status,
-        character_id=character_id,
-        order_by=order_by,
-        order=order,
-    )
+    try:
+        conversations, total = conversation.get_multi(
+            db,
+            user_id=current_user.id,
+            skip=skip,
+            limit=limit,
+            status=conversation_status,
+            character_id=character_id,
+            order_by=order_by,
+            order=order,
+        )
 
-    # 转换为响应格式
-    conversation_list = []
-    for conv in conversations:
-        conv_dict = ConversationPublic.from_orm(conv).dict()
-        conv_dict["character"] = conv.character
-        # conv_dict["user"] = conv.user
-        conversation_list.append(ConversationWithDetails(**conv_dict))
+        # 转换为响应格式
+        conversation_list = []
+        for conv in conversations:
+            conv_dict = ConversationPublic.from_orm(conv).dict()
+            conv_dict["character"] = conv.character
+            # conv_dict["user"] = conv.user
+            conversation_list.append(ConversationWithDetails(**conv_dict))
 
-    return success_response(
-        data={
-            "conversations": [conv.dict() for conv in conversation_list],
-            "total": total,
-            "skip": skip,
-            "limit": limit,
-        },
-        msg="获取会话列表成功",
-    )
+        return success_response(
+            data={
+                "conversations": [conv.dict() for conv in conversation_list],
+                "total": total,
+                "skip": skip,
+                "limit": limit,
+            },
+            msg="获取会话列表成功",
+        )
+    except Exception as e:
+        logger.error("获取会话列表失败: %s", str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取会话列表失败",
+        )
 
 
 @router.get("/{conversation_id}")
@@ -161,7 +165,9 @@ async def get_conversation(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 转换为响应格式
     conv_dict = ConversationPublic.from_orm(db_conversation).dict()
@@ -187,7 +193,9 @@ async def update_conversation(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 验证角色是否存在（如果提供了character_id）
     if conversation_in.character_id:
@@ -196,7 +204,7 @@ async def update_conversation(
         character_obj = character.get(db, id=conversation_in.character_id)
         if not character_obj:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail=f"角色不存在: {conversation_in.character_id}",
             )
 
@@ -223,7 +231,9 @@ async def delete_conversation(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 软删除会话
     db_conversation = conversation.delete(
@@ -243,33 +253,40 @@ async def search_conversations(
     search_params: ConversationSearchRequest,
 ):
     """搜索会话"""
-    conversations, total = conversation.search(
-        db, user_id=current_user.id, search_params=search_params
-    )
+    try:
+        conversations, total = conversation.search(
+            db, user_id=current_user.id, search_params=search_params
+        )
 
-    # 转换为响应格式
-    conversation_list = []
-    for conv in conversations:
-        conv_dict = ConversationPublic.from_orm(conv).dict()
-        conv_dict["character"] = conv.character
-        conv_dict["user"] = conv.user
-        conversation_list.append(ConversationWithDetails(**conv_dict))
+        # 转换为响应格式
+        conversation_list = []
+        for conv in conversations:
+            conv_dict = ConversationPublic.from_orm(conv).dict()
+            conv_dict["character"] = conv.character
+            conv_dict["user"] = conv.user
+            conversation_list.append(ConversationWithDetails(**conv_dict))
 
-    return success_response(
-        data={
-            "conversations": [conv.dict() for conv in conversation_list],
-            "total": total,
-            "skip": search_params.skip,
-            "limit": search_params.limit,
-        },
-        msg="搜索会话成功",
-    )
+        return success_response(
+            data={
+                "conversations": [conv.dict() for conv in conversation_list],
+                "total": total,
+                "skip": search_params.skip,
+                "limit": search_params.limit,
+            },
+            msg="搜索会话成功",
+        )
+    except Exception as e:
+        logger.error("搜索会话失败: %s", str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="搜索会话失败",
+        )
 
 
 # 消息管理端点
 @router.post(
     "/{conversation_id}/messages",
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 async def create_message(
     *,
@@ -285,7 +302,9 @@ async def create_message(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 检查用户消息限制
     daily_limit = user_conversation_limit.get_by_user_and_type(
@@ -298,7 +317,7 @@ async def create_message(
 
         if daily_limit.current_value >= daily_limit.limit_value:
             raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                status_code=http_status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"已达到每日消息数量限制: {daily_limit.limit_value}",
             )
 
@@ -314,12 +333,22 @@ async def create_message(
     db_conversation.last_message_at = datetime.utcnow()
     db_conversation.updated_at = datetime.utcnow()
     db.add(db_conversation)
-    db.commit()
 
     # 更新用户消息限制
     if daily_limit:
         user_conversation_limit.update_current_value(
             db, db_obj=daily_limit, increment=1
+        )
+
+    # 提交所有更改
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error("保存消息和更新会话失败: %s", str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="保存消息失败",
         )
 
     return success_response(
@@ -347,7 +376,9 @@ async def get_messages(
     )
 
     if not db_conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="会话不存在"
+        )
 
     # 转换类型参数
     sender_type_enum = None
@@ -356,7 +387,7 @@ async def get_messages(
             sender_type_enum = SenderType(sender_type)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail=f"无效的发送者类型: {sender_type}",
             )
 
@@ -366,30 +397,37 @@ async def get_messages(
             content_type_enum = ContentType(content_type)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail=f"无效的内容类型: {content_type}",
             )
 
-    messages, total = message.get_multi(
-        db,
-        conversation_id=conversation_id,
-        skip=skip,
-        limit=limit,
-        sender_type=sender_type_enum,
-        content_type=content_type_enum,
-        since=since,
-        until=until,
-    )
+    try:
+        messages, total = message.get_multi(
+            db,
+            conversation_id=conversation_id,
+            skip=skip,
+            limit=limit,
+            sender_type=sender_type_enum,
+            content_type=content_type_enum,
+            since=since,
+            until=until,
+        )
 
-    return success_response(
-        data={
-            "messages": [MessagePublic.from_orm(msg).dict() for msg in messages],
-            "total": total,
-            "skip": skip,
-            "limit": limit,
-        },
-        msg="获取消息列表成功",
-    )
+        return success_response(
+            data={
+                "messages": [MessagePublic.from_orm(msg).dict() for msg in messages],
+                "total": total,
+                "skip": skip,
+                "limit": limit,
+            },
+            msg="获取消息列表成功",
+        )
+    except Exception as e:
+        logger.error("获取消息列表失败: %s", str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取消息列表失败",
+        )
 
 
 @router.post("/generate")
@@ -414,6 +452,6 @@ async def generate_character(
     except Exception as e:
         logger.error(f"生成角色设定失败: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"生成角色设定失败: {str(e)}",
         )

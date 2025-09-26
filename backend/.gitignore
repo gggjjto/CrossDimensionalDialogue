@@ -9,3 +9,4 @@ htmlcov
 data/audio_files/
 .pytest_cache/
 .ruff_cache/
+/logs/
