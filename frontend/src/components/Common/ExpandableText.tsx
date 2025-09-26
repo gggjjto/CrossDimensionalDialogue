@@ -5,11 +5,11 @@ import { FaCaretDown } from "react-icons/fa"
 interface ExpandableTextProps {
   children: string
   maxLines?: number
-  fontSize?: string
+  fontSize?: "sm" | "md"
   lineHeight?: string
   color?: string
   buttonColor?: string
-  buttonSize?: string
+  buttonSize?: "sm" | "md" | "lg" | "xs"
 }
 
 export default function ExpandableText({
@@ -64,7 +64,7 @@ export default function ExpandableText({
           <Button
             variant="ghost"
             color={buttonColor}
-            size={buttonSize as "sm" | "md" | "lg" | "xs"}
+            size={buttonSize}
             onClick={() => setIsExpanded(!isExpanded)}
             _hover={{ bg: "rgba(255,255,255,0.1)" }}
             p="1"
