@@ -407,7 +407,7 @@ async def generate_character(
     """
     try:
         # 调用LLM服务生成角色设定
-        response = await llm_service.generate_character_profile(request)
+        response = llm_service.generate_character_profile(request)
 
         return success_response(data=response.dict(), msg="角色设定生成成功")
 

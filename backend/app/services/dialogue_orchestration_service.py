@@ -3,32 +3,32 @@
 负责协调用户消息、角色persona、历史消息，调用LLM生成角色回复
 """
 
+import os
+import tempfile
 import uuid
-import logging
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
-from sqlmodel import Session
-
+from app.core.logger import get_logger
+from app.crud.conversation import conversation
+from app.crud.conversation import message as message_crud
+from app.models.character import Character
 from app.models.conversation import (
+    ContentType,
     Conversation,
+    ConversationSettings,
     Message,
     MessageCreate,
     SenderType,
-    ContentType,
-    ConversationSettings,
 )
-from app.models.character import Character
-from app.crud.conversation import conversation, message as message_crud
-from app.services.llm_service import llm_service, LLMResponse
-from app.services.tts_service import tts_service, TTSRequest, TTSResponse
-from app.services.stt_service import stt_service, STTRequest, STTResponse
-from app.services.voice_catalog_service import list_voices
+from app.services.llm_service import LLMResponse, llm_service
 from app.services.qiniu_storage_service import QiniuStorageService
-import tempfile
-import os
+from app.services.stt_service import STTRequest, STTResponse, stt_service
+from app.services.tts_service import TTSRequest, TTSResponse, tts_service
+from app.services.voice_catalog_service import list_voices
+from sqlmodel import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger("dialogue_orchestration_service")
 
 
 class DialogueOrchestrationService:
@@ -66,6 +66,7 @@ class DialogueOrchestrationService:
                 db, id=conversation_id, user_id=user_id
             )
             if not db_conversation:
+                logger.error("%s,会话不存在或无权限访问", conversation_id)
                 raise ValueError("会话不存在或无权限访问")
 
             # 保存用户消息
@@ -76,6 +77,7 @@ class DialogueOrchestrationService:
             # 单角色模式 - 获取会话关联的角色
             character = db_conversation.character
             if not character:
+                logger.error("%s,角色信息不存在", character.id)
                 raise ValueError("角色信息不存在")
 
             # 生成角色回复
@@ -112,7 +114,7 @@ class DialogueOrchestrationService:
             }
 
         except Exception as e:
-            logger.error(f"处理用户消息失败: {str(e)}")
+            logger.error("处理用户消息失败: %s", str(e))
             return {
                 "success": False,
                 "error": str(e),
@@ -136,7 +138,7 @@ class DialogueOrchestrationService:
             db, obj_in=message_create, conversation_id=conversation_id
         )
 
-        logger.info(f"用户消息已保存: {db_message.id}")
+        logger.info("用户消息已保存: %s", db_message.id)
         return db_message
 
     async def _generate_character_response(
@@ -159,16 +161,14 @@ class DialogueOrchestrationService:
                 max_tokens=settings.max_tokens if settings else 1000,
             )
 
-            logger.info(
-                f"角色回复生成成功: {character.name}"
-            )
+            logger.info("角色回复生成成功: %s, 回复内容: %s", character.name, response.content)
             return response
 
         except Exception as e:
-            logger.error(f"生成角色回复失败: {str(e)}")
+            logger.error("生成角色回复失败: %s", str(e))
             # 返回默认回复
             return LLMResponse(
-                content=f"抱歉，我现在无法回复。请稍后再试。",
+                content="抱歉，我现在无法回复。请稍后再试。",
                 model="fallback",
                 usage={},
             )
@@ -193,7 +193,7 @@ class DialogueOrchestrationService:
             db, obj_in=message_create, conversation_id=conversation_id
         )
 
-        logger.info(f"角色消息已保存: {db_message.id}")
+        logger.info("角色消息已保存: %s, 消息内容: %s", db_message.id, content)
         return db_message
 
     async def _update_conversation_stats(self, db: Session, conversation: Conversation):
@@ -205,7 +205,7 @@ class DialogueOrchestrationService:
         db.add(conversation)
         db.commit()
 
-        logger.info(f"会话统计已更新: {conversation.id}")
+        logger.info("会话统计已更新: %s", conversation.id)
 
     async def _generate_voice_response(
         self,
@@ -221,14 +221,12 @@ class DialogueOrchestrationService:
                 logger.warning("文本为空，跳过语音生成")
                 return None
 
-            # 获取可用的音色列表
-            available_voices = list_voices(db, provider="qwen3-tts")
-            if not available_voices:
-                logger.warning("没有可用的音色，使用默认音色")
+
+            # 使用角色的默认音色
+            voice = character.default_voice
+            if not voice:
+                logger.warning("角色没有设置默认音色，使用默认音色")
                 voice = "Cherry"  # 默认音色
-            else:
-                # 使用角色的默认音色
-                voice = self._get_character_default_voice(character, available_voices)
 
             # 创建TTS请求
             tts_request = TTSRequest(
@@ -247,7 +245,7 @@ class DialogueOrchestrationService:
                     tts_response.audio_bytes, user_id, conversation_id, character.name
                 )
                 logger.info(
-                    f"为角色 {character.name} 生成语音回复成功，使用音色: {voice}"
+                    "为角色 %s 生成语音回复成功，使用音色: %s", character.name, voice
                 )
                 return audio_url
             else:
@@ -255,7 +253,7 @@ class DialogueOrchestrationService:
                 return None
 
         except Exception as e:
-            logger.error(f"生成语音回复失败: {str(e)}")
+            logger.error("生成语音回复失败: %s", str(e))
             return None
 
     async def _save_audio_to_storage(
@@ -283,6 +281,7 @@ class DialogueOrchestrationService:
                 )
 
                 # 返回云存储URL
+                logger.info("音频文件已保存到云存储: %s", upload_result.get("url", ""))
                 return upload_result.get("url", "")
 
             finally:
@@ -291,35 +290,9 @@ class DialogueOrchestrationService:
                     os.unlink(temp_file_path)
 
         except Exception as e:
-            logger.error(f"保存音频文件到云存储失败: {str(e)}")
+            logger.error("保存音频文件到云存储失败: %s", str(e))
             # 如果云存储失败，返回base64编码的音频数据作为备选
             return f"data:audio/wav;base64,{self._encode_audio_to_base64(audio_bytes)}"
-
-    def _get_default_voice(self, available_voices: List) -> str:
-        """获取默认音色"""
-        # 优先使用Cherry音色
-        for voice_obj in available_voices:
-            if voice_obj.voice == "Cherry" and voice_obj.is_active:
-                return voice_obj.voice
-
-        # 如果Cherry不可用，使用第一个可用音色
-        if available_voices:
-            return available_voices[0].voice
-
-        return "Cherry"  # 最终默认音色
-
-    def _get_character_default_voice(
-        self, character: Character, available_voices: List
-    ) -> str:
-        """获取角色的默认音色"""
-        # 优先使用角色设置的默认音色
-        if character.default_voice:
-            for voice_obj in available_voices:
-                if voice_obj.voice == character.default_voice and voice_obj.is_active:
-                    return voice_obj.voice
-
-        # 如果角色没有设置默认音色或音色不可用，使用全局默认音色
-        return self._get_default_voice(available_voices)
 
     def _encode_audio_to_base64(self, audio_bytes: bytes) -> str:
         """将音频字节编码为base64字符串"""
@@ -360,11 +333,13 @@ class DialogueOrchestrationService:
                 db, id=conversation_id, user_id=user_id
             )
             if not db_conversation:
+                logger.error("会话不存在或无权限访问")
                 raise ValueError("会话不存在或无权限访问")
 
             # 2. 语音转文本 (STT)
             stt_text = await self._speech_to_text(audio_url)
             if not stt_text:
+                logger.error("语音识别失败，无法获取文本内容")
                 raise ValueError("语音识别失败，无法获取文本内容")
 
             # 3. 保存用户语音消息（以文本形式）
@@ -375,6 +350,7 @@ class DialogueOrchestrationService:
             # 4. 获取角色信息
             character = db_conversation.character
             if not character:
+                logger.error("角色信息不存在")
                 raise ValueError("角色信息不存在")
 
             # 5. 生成角色文本回复 (LLM)
@@ -418,7 +394,7 @@ class DialogueOrchestrationService:
             }
 
         except Exception as e:
-            logger.error(f"处理语音消息失败: {str(e)}")
+            logger.error("处理语音消息失败: %s", str(e))
             return {
                 "success": False,
                 "error": str(e),
@@ -438,23 +414,21 @@ class DialogueOrchestrationService:
                 return None
 
             # 创建STT请求
-            stt_request = STTRequest(
-                audio_url=audio_url
-            )
+            stt_request = STTRequest(audio_url=audio_url)
 
             # 调用STT服务
             stt_response = await stt_service.transcribe(stt_request)
 
             if stt_response.text and stt_response.text.strip():
-                logger.info(f"语音识别成功: {stt_response.text[:50]}...")
+                logger.info("语音识别成功: %s...", stt_response.text[:50])
                 return stt_response.text.strip()
             else:
                 logger.error("STT服务返回空文本")
-                return None
+                raise ValueError("STT服务返回空文本")
 
         except Exception as e:
-            logger.error(f"语音转文本失败: {str(e)}")
-            return None
+            logger.error("语音转文本失败: %s", str(e))
+            raise ValueError("语音转文本失败")
 
     async def _generate_voice_response_with_preference(
         self,
@@ -471,22 +445,11 @@ class DialogueOrchestrationService:
                 logger.warning("文本为空，跳过语音生成")
                 return None, None
 
-            # 获取可用的音色列表
-            available_voices = list_voices(db, provider="qwen3-tts")
-            if not available_voices:
-                logger.warning("没有可用的音色，使用默认音色")
+            # 使用角色的默认音色
+            voice = character.default_voice
+            if not voice:
+                logger.warning("角色没有设置默认音色，使用默认音色")
                 voice = "Cherry"  # 默认音色
-            else:
-                # 优先使用用户偏好的音色
-                if voice_preference:
-                    voice = self._select_preferred_voice(
-                        voice_preference, available_voices
-                    )
-                else:
-                    # 使用角色的默认音色
-                    voice = self._get_character_default_voice(
-                        character, available_voices
-                    )
 
             # 创建TTS请求
             tts_request = TTSRequest(
@@ -505,7 +468,7 @@ class DialogueOrchestrationService:
                     tts_response.audio_bytes, user_id, conversation_id, character.name
                 )
                 logger.info(
-                    f"为角色 {character.name} 生成语音回复成功，使用音色: {voice}"
+                    "为角色 %s 生成语音回复成功，使用音色: %s", character.name, voice
                 )
                 return audio_url, voice
             else:
@@ -513,20 +476,8 @@ class DialogueOrchestrationService:
                 return None, None
 
         except Exception as e:
-            logger.error(f"生成语音回复失败: {str(e)}")
+            logger.error("生成语音回复失败: %s", str(e))
             return None, None
-
-    def _select_preferred_voice(
-        self, voice_preference: str, available_voices: List
-    ) -> str:
-        """选择用户偏好的音色"""
-        for voice_obj in available_voices:
-            if voice_obj.voice == voice_preference and voice_obj.is_active:
-                return voice_obj.voice
-
-        # 如果偏好音色不可用，使用默认音色Cherry
-        return self._get_default_voice(available_voices)
-
     async def get_conversation_context(
         self,
         db: Session,
@@ -552,6 +503,7 @@ class DialogueOrchestrationService:
                 db, id=conversation_id, user_id=user_id
             )
             if not db_conversation:
+                logger.error("会话不存在或无权限访问")
                 raise ValueError("会话不存在或无权限访问")
 
             # 获取最近消息
@@ -571,8 +523,8 @@ class DialogueOrchestrationService:
             }
 
         except Exception as e:
-            logger.error(f"获取会话上下文失败: {str(e)}")
-            raise
+            logger.error("获取会话上下文失败: %s", str(e))
+            raise ValueError("获取会话上下文失败")
 
 
 # 全局对话编排服务实例

@@ -5,16 +5,15 @@
 """
 
 import hashlib
-import mimetypes
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urljoin
-
-from qiniu import Auth, BucketManager, CdnManager, put_data, put_file
-from qiniu.http import ResponseInfo
 
 from app.core.config import settings
+from app.core.logger import get_logger
+from qiniu import Auth, BucketManager, CdnManager, put_data, put_file
+
+logger = get_logger("qiniu_storage")
 
 
 class QiniuStorageError(Exception):
@@ -36,6 +35,7 @@ class QiniuStorageClient:
                 settings.QINIU_DOMAIN,
             ]
         ):
+            logger.error("七牛云配置不完整，请检查环境变量")
             raise QiniuStorageError("七牛云配置不完整，请检查环境变量")
 
         self.auth = Auth(settings.QINIU_ACCESS_KEY, settings.QINIU_SECRET_KEY)
@@ -44,7 +44,9 @@ class QiniuStorageClient:
         self.bucket_name = settings.QINIU_BUCKET_NAME
         self.domain = settings.QINIU_DOMAIN.rstrip("/") if settings.QINIU_DOMAIN else ""
         self.use_https = settings.QINIU_USE_HTTPS
-        self.cdn_domain = (settings.QINIU_CDN_DOMAIN or settings.QINIU_DOMAIN or "").rstrip("/")
+        self.cdn_domain = (
+            settings.QINIU_CDN_DOMAIN or settings.QINIU_DOMAIN or ""
+        ).rstrip("/")
 
     def _get_protocol(self) -> str:
         """获取协议"""

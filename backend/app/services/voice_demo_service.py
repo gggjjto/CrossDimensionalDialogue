@@ -5,18 +5,18 @@
 """
 
 import asyncio
-import logging
-import tempfile
 import os
-from typing import List, Optional, Dict, Any
-from sqlmodel import Session
+import tempfile
+from typing import Any, Dict, List, Optional
 
-from app.services.tts_service import TTSService, TTSRequest
-from app.services.qiniu_storage_service import QiniuStorageService
+from app.core.logger import get_logger
 from app.crud.voice_catalog import voice_catalog_crud
 from app.models.voice_catalog import VoiceCatalog, VoiceCatalogUpdate
+from app.services.qiniu_storage_service import QiniuStorageService
+from app.services.tts_service import TTSRequest, TTSService
+from sqlmodel import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger("voice_demo_service")
 
 
 class VoiceDemoService:
@@ -68,7 +68,7 @@ class VoiceDemoService:
 
                 if not tts_response.audio_bytes:
                     logger.error(
-                        f"为音色 {voice_catalog.name} 生成语音失败：TTS返回空数据"
+                        "为音色 %s 生成语音失败：TTS返回空数据", voice_catalog.name
                     )
                     return None
 
@@ -84,11 +84,11 @@ class VoiceDemoService:
                         session, db_obj=voice_catalog, obj_in=update_data
                     )
                     logger.info(
-                        f"为音色 {voice_catalog.name} 生成示例语音成功: {audio_url}"
+                        "为音色 %s 生成示例语音成功: %s", voice_catalog.name, audio_url
                     )
                     return audio_url
                 else:
-                    logger.error(f"为音色 {voice_catalog.name} 上传音频失败")
+                    logger.error("为音色 %s 上传音频失败", voice_catalog.name)
                     return None
 
             except ValueError as e:
@@ -101,22 +101,22 @@ class VoiceDemoService:
                     if attempt < max_retries:
                         wait_time = retry_delay * (2**attempt)  # 指数退避
                         logger.warning(
-                            f"为音色 {voice_catalog.name} 遇到限流，第 {attempt + 1} 次重试，等待 {wait_time} 秒..."
+                            "为音色 %s 遇到限流，第 %s 次重试，等待 %s 秒...", voice_catalog.name, attempt + 1, wait_time
                         )
                         await asyncio.sleep(wait_time)
                         continue
                     else:
                         logger.error(
-                            f"为音色 {voice_catalog.name} 重试 {max_retries} 次后仍然限流"
+                            "为音色 %s 重试 %s 次后仍然限流", voice_catalog.name, max_retries
                         )
                         return None
                 else:
                     logger.error(
-                        f"为音色 {voice_catalog.name} 生成示例语音失败: {error_msg}"
+                        "为音色 %s 生成示例语音失败: %s", voice_catalog.name, error_msg
                     )
                     return None
             except Exception as e:
-                logger.error(f"为音色 {voice_catalog.name} 生成示例语音失败: {str(e)}")
+                logger.error("为音色 %s 生成示例语音失败: %s", voice_catalog.name, str(e))
                 return None
 
         return None
@@ -145,7 +145,7 @@ class VoiceDemoService:
             )
 
             if not voices:
-                logger.warning(f"没有找到 {provider} 的音色")
+                logger.warning("没有找到 %s 的音色", provider)
                 return {"success": False, "message": "没有找到音色"}
 
             success_count = 0
@@ -196,7 +196,7 @@ class VoiceDemoService:
                     )
 
             logger.info(
-                f"音色示例语音生成完成: 成功 {success_count}, 失败 {failed_count}, 跳过 {skipped_count}"
+                "音色示例语音生成完成: 成功 %s, 失败 %s, 跳过 %s", success_count, failed_count, skipped_count
             )
 
             return {
@@ -257,7 +257,7 @@ class VoiceDemoService:
                     os.unlink(temp_file_path)
 
         except Exception as e:
-            logger.error(f"上传音频到七牛云失败: {str(e)}")
+            logger.error("上传音频到七牛云失败: %s", str(e))
             return None
 
     def _get_default_demo_text(self, voice_name: str) -> str:

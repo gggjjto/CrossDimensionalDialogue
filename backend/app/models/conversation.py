@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING
 from enum import Enum
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlmodel import Relationship, SQLModel, Field, JSON
+from sqlmodel import JSON, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from app.models.user import User, UserPublic
     from app.models.character import Character, CharacterPublic
+    from app.models.user import User, UserPublic
 
 
 class ConversationStatus(str, Enum):
@@ -83,9 +83,7 @@ class ConversationSettings(SQLModel):
     """会话设置模型"""
 
     # LLM配置
-    llm_provider: LLMProvider = Field(
-        default=LLMProvider.QWEN, description="LLM提供商"
-    )
+    llm_provider: LLMProvider = Field(default=LLMProvider.QWEN, description="LLM提供商")
     llm_model: str = Field(default="gpt-3.5-turbo", description="LLM模型")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
     max_tokens: int = Field(default=1000, ge=1, le=4000, description="最大token数")

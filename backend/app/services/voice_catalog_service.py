@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional
 
-from sqlmodel import Session
-
+from app.core.logger import get_logger
 from app.crud.voice_catalog import voice_catalog_crud
 from app.models.voice_catalog import VoiceCatalog, VoiceCatalogCreate
+from sqlmodel import Session
+
+logger = get_logger("voice_catalog_service")
 
 
 QWEN3_TTS_17_VOICES: List[VoiceCatalogCreate] = [

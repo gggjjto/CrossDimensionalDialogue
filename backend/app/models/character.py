@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlmodel import Relationship, SQLModel, Field, JSON
 from pgvector.sqlalchemy import Vector
+from sqlmodel import JSON, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.models.conversation import Conversation

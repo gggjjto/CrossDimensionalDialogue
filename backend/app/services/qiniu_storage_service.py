@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from app.core.config import settings
+from app.core.logger import get_logger
 from app.utils.qiniu_storage import QiniuStorageClient, QiniuStorageError
+
+logger = get_logger("qiniu_storage_service")
 
 
 class QiniuStorageService:
@@ -44,13 +47,15 @@ class QiniuStorageService:
 
         # 验证文件类型
         if not self._is_audio_file(file_path):
-            raise QiniuStorageError(f"不支持的文件类型: {file_path.suffix}")
+            logger.error("不支持的文件类型: %s", file_path.suffix)
+            raise QiniuStorageError("不支持的文件类型")
 
         # 验证文件大小
         if file_path.stat().st_size > settings.MAX_AUDIO_FILE_SIZE:
-            raise QiniuStorageError(
-                f"文件过大，最大支持 {settings.MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            logger.error(
+                "文件过大，最大支持 %sMB", settings.MAX_AUDIO_FILE_SIZE // (1024 * 1024)
             )
+            raise QiniuStorageError("文件过大")
 
         # 生成文件key
         prefix = f"audio/{user_id}"
@@ -94,7 +99,8 @@ class QiniuStorageService:
 
         # 验证文件类型
         if not self._is_image_file(file_path):
-            raise QiniuStorageError(f"不支持的图片类型: {file_path.suffix}")
+            logger.error("不支持的图片类型: %s", file_path.suffix)
+            raise QiniuStorageError("不支持的图片类型")
 
         # 生成文件key
         prefix = f"images/{user_id}/{category}"
@@ -130,7 +136,8 @@ class QiniuStorageService:
 
         # 验证文件类型
         if not self._is_image_file(file_path):
-            raise QiniuStorageError(f"不支持的图片类型: {file_path.suffix}")
+            logger.error("不支持的图片类型: %s", file_path.suffix)
+            raise QiniuStorageError("不支持的图片类型")
 
         # 生成文件key
         prefix = f"characters/{character_id}/avatar"
@@ -203,7 +210,8 @@ class QiniuStorageService:
 
         # 验证文件类型
         if not self._is_document_file(file_path):
-            raise QiniuStorageError(f"不支持的文档类型: {file_path.suffix}")
+            logger.error("不支持的文档类型: %s", file_path.suffix)
+            raise QiniuStorageError("不支持的文档类型")
 
         # 生成文件key
         prefix = f"documents/{user_id}/{document_type}"

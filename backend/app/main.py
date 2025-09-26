@@ -1,6 +1,9 @@
+import logging
+
 import sentry_sdk
 from app.api.main import api_router
 from app.core.config import settings
+from app.core.logger import get_logger
 from app.middleware.exception_handler import setup_exception_handlers
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -20,6 +23,7 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
+
 # Set all CORS enabled origins
 if settings.all_cors_origins:
     app.add_middleware(
@@ -37,4 +41,5 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
