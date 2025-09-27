@@ -9,6 +9,14 @@ from typing import Optional
 
 from app.api.deps import get_current_active_superuser, get_current_user, get_db
 from app.models.user import User
+from app.schemas.task import (
+    STTTranscriptionTaskInput,
+    TaskCreateRequest,
+    TaskResponse,
+    TaskType,
+    TTSGenerationTaskInput,
+    VoiceMessageTaskInput,
+)
 from app.schemas.voice_message import (
     VoiceMessageRequest,
     VoiceMessageResponse,
@@ -17,6 +25,7 @@ from app.schemas.voice_message import (
 from app.services.dialogue_orchestration_service import dialogue_orchestration_service
 from app.services.qiniu_storage_service import qiniu_storage_service
 from app.services.stt_service import STTRequest, stt_service
+from app.services.task_queue_service import task_queue_service
 from app.services.tts_service import TTSRequest, tts_service
 from app.services.voice_catalog_service import list_voices
 from app.services.voice_demo_service import voice_demo_service
@@ -138,7 +147,7 @@ async def upload_audio_file(
         return error_response(msg=f"上传音频文件失败: {str(e)}")
 
 
-@router.post("/message")
+@router.post("/message", status_code=status.HTTP_202_ACCEPTED)
 async def process_voice_message(
     *,
     db: Session = Depends(get_db),
@@ -146,13 +155,13 @@ async def process_voice_message(
     current_user: User = Depends(get_current_user),
 ):
     """
-    处理语音消息
+    处理语音消息 - 异步任务版本
 
     完整的语音对话流程：
     1. STT: 语音转文本
     2. LLM: AI生成回复
     3. TTS: 文本转语音
-    4. 返回文本回复和语音回复URL
+    4. 返回任务ID，通过轮询获取结果
     """
     try:
         # 验证音频URL
@@ -161,46 +170,47 @@ async def process_voice_message(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="音频URL无效"
             )
 
-        # 调用对话编排服务处理语音消息
-        result = await dialogue_orchestration_service.process_voice_message(
-            db=db,
-            conversation_id=request.conversation_id,
+        # 创建语音消息任务
+        task_input = VoiceMessageTaskInput(
             audio_url=request.audio_file_url,
-            user_id=current_user.id,
-            settings=None,  # 使用默认设置
             voice_preference=request.voice_preference,
+            enable_tts=True,
         )
 
-        if result["success"]:
-            return success_response(
-                data={
-                    "success": True,
-                    "user_message_id": (
-                        result["user_message"].id if result["user_message"] else None
-                    ),
-                    "character_message_id": (
-                        result["character_message"].id
-                        if result["character_message"]
-                        else None
-                    ),
-                    "text_response": result["text_response"],
-                    "audio_response_url": result["audio_response_url"],
-                    "voice_used": result["voice_used"],
-                    "stt_text": result["stt_text"],
-                },
-                msg="语音消息处理成功",
-            )
-        else:
-            return error_response(msg=result["error"])
+        task_request = TaskCreateRequest(
+            task_type=TaskType.VOICE_MESSAGE,
+            conversation_id=request.conversation_id,
+            input_data=task_input.dict(),
+            priority=5,  # 中等优先级
+            task_metadata={
+                "user_id": str(current_user.id),
+                "voice_preference": request.voice_preference,
+            },
+        )
+
+        # 创建任务
+        task = await task_queue_service.create_task(
+            db=db, user_id=current_user.id, request=task_request
+        )
+
+        return success_response(
+            data={
+                "task_id": task.id,
+                "status": task.status,
+                "progress": task.progress,
+                "created_at": task.created_at,
+            },
+            msg="语音消息处理任务已创建",
+        )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"处理语音消息失败: {str(e)}")
-        return error_response(msg=f"处理语音消息失败: {str(e)}")
+        logger.error(f"创建语音消息处理任务失败: {str(e)}")
+        return error_response(msg=f"创建语音消息处理任务失败: {str(e)}")
 
 
-@router.post("/tts")
+@router.post("/tts", status_code=status.HTTP_202_ACCEPTED)
 async def text_to_speech(
     *,
     db: Session = Depends(get_db),
@@ -211,7 +221,7 @@ async def text_to_speech(
     current_user: User = Depends(get_current_user),
 ):
     """
-    文本转语音
+    文本转语音 - 异步任务版本
 
     将文本转换为语音文件
     """
@@ -231,48 +241,44 @@ async def text_to_speech(
         if not voice:
             voice = "Cherry"  # 默认音色
 
-        # 创建TTS请求
-        tts_request = TTSRequest(
-            text=text,
-            voice=voice,
-            audio_format=audio_format,
-            sample_rate=sample_rate,
+        # 创建TTS生成任务
+        task_input = TTSGenerationTaskInput(
+            text=text, voice=voice, audio_format=audio_format, sample_rate=sample_rate
         )
 
-        # 调用TTS服务
-        tts_response = await tts_service.synthesize(tts_request)
+        task_request = TaskCreateRequest(
+            task_type=TaskType.TTS_GENERATION,
+            input_data=task_input.dict(),
+            priority=3,  # 较低优先级
+            task_metadata={"user_id": str(current_user.id), "text_length": len(text)},
+        )
 
-        if not tts_response.audio_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="语音生成失败"
-            )
-
-        # 返回音频数据
-        import base64
-
-        audio_base64 = base64.b64encode(tts_response.audio_bytes).decode("utf-8")
+        # 创建任务
+        task = await task_queue_service.create_task(
+            db=db, user_id=current_user.id, request=task_request
+        )
 
         return success_response(
             data={
-                "audio_data": audio_base64,
-                "content_type": tts_response.content_type,
-                "voice": voice,
-                "duration_sec": tts_response.duration_sec,
-                "model": tts_response.model,
+                "task_id": task.id,
+                "status": task.status,
+                "progress": task.progress,
+                "created_at": task.created_at,
             },
-            message="语音生成成功",
+            msg="TTS生成任务已创建",
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"文本转语音失败: {str(e)}")
+        logger.error(f"创建TTS生成任务失败: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="文本转语音失败"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建TTS生成任务失败",
         )
 
 
-@router.post("/stt")
+@router.post("/stt", status_code=status.HTTP_202_ACCEPTED)
 async def speech_to_text(
     *,
     audio_url: str,
@@ -281,9 +287,10 @@ async def speech_to_text(
     response_format: str = "json",
     temperature: Optional[float] = None,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
-    语音转文本
+    语音转文本 - 异步任务版本
 
     将语音文件转换为文本
     """
@@ -294,8 +301,8 @@ async def speech_to_text(
                 detail="音频URL必须是公网可访问的HTTP链接",
             )
 
-        # 创建STT请求
-        stt_request = STTRequest(
+        # 创建STT转录任务
+        task_input = STTTranscriptionTaskInput(
             audio_url=audio_url,
             model=model,
             prompt=prompt,
@@ -303,26 +310,35 @@ async def speech_to_text(
             temperature=temperature,
         )
 
-        # 调用STT服务
-        stt_response = await stt_service.transcribe(stt_request)
+        task_request = TaskCreateRequest(
+            task_type=TaskType.STT_TRANSCRIPTION,
+            input_data=task_input.dict(),
+            priority=4,  # 中等优先级
+            task_metadata={"user_id": str(current_user.id), "audio_url": audio_url},
+        )
+
+        # 创建任务
+        task = await task_queue_service.create_task(
+            db=db, user_id=current_user.id, request=task_request
+        )
 
         return success_response(
             data={
-                "text": stt_response.text,
-                "language": stt_response.language,
-                "duration_sec": stt_response.duration_sec,
-                "model": stt_response.model,
-                "words": stt_response.words,
+                "task_id": task.id,
+                "status": task.status,
+                "progress": task.progress,
+                "created_at": task.created_at,
             },
-            message="语音识别成功",
+            msg="STT转录任务已创建",
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"语音转文本失败: {str(e)}")
+        logger.error(f"创建STT转录任务失败: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="语音转文本失败"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建STT转录任务失败",
         )
 
 

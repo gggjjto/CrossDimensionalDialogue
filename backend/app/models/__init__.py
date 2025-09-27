@@ -23,6 +23,35 @@ from app.models.character import (
     CharacterTagUpdate,
     CharacterUpdate,
 )
+from app.models.conversation import (
+    Conversation,
+    ConversationBase,
+    ConversationContext,
+    ConversationContextBase,
+    ConversationContextCreate,
+    ConversationContextPublic,
+    ConversationCreate,
+    ConversationListResponse,
+    ConversationPublic,
+    ConversationSearchRequest,
+    ConversationTag,
+    ConversationTagBase,
+    ConversationTagCreate,
+    ConversationTagPublic,
+    ConversationUpdate,
+    ConversationWithDetails,
+    Message,
+    MessageBase,
+    MessageCreate,
+    MessageListResponse,
+    MessagePublic,
+    MessageSearchRequest,
+    MessageUpdate,
+    UserConversationLimit,
+    UserConversationLimitBase,
+    UserConversationLimitCreate,
+    UserConversationLimitPublic,
+)
 from app.models.item import (
     Item,
     ItemBase,
@@ -30,6 +59,16 @@ from app.models.item import (
     ItemPublic,
     ItemsPublic,
     ItemUpdate,
+)
+from app.models.task import (
+    AITask,
+    TaskCreate,
+    TaskListResponse,
+    TaskResponse,
+    TaskStats,
+    TaskStatus,
+    TaskStep,
+    TaskType,
 )
 from app.models.user import (
     UpdatePassword,
@@ -42,42 +81,12 @@ from app.models.user import (
     UserUpdate,
     UserUpdateMe,
 )
-from app.models.conversation import (
-    Conversation,
-    ConversationBase,
-    ConversationCreate,
-    ConversationPublic,
-    ConversationUpdate,
-    ConversationWithDetails,
-    ConversationListResponse,
-    ConversationSearchRequest,
-    Message,
-    MessageBase,
-    MessageCreate,
-    MessagePublic,
-    MessageUpdate,
-    MessageListResponse,
-    MessageSearchRequest,
-    ConversationContext,
-    ConversationContextBase,
-    ConversationContextCreate,
-    ConversationContextPublic,
-    ConversationTag,
-    ConversationTagBase,
-    ConversationTagCreate,
-    ConversationTagPublic,
-    UserConversationLimit,
-    UserConversationLimitBase,
-    UserConversationLimitCreate,
-    UserConversationLimitPublic,
-)
-
 from app.models.voice_catalog import (
     VoiceCatalog,
     VoiceCatalogBase,
     VoiceCatalogCreate,
-    VoiceCatalogUpdate,
     VoiceCatalogPublic,
+    VoiceCatalogUpdate,
 )
 
 __all__ = [
@@ -159,4 +168,13 @@ __all__ = [
     "VoiceCatalogCreate",
     "VoiceCatalogUpdate",
     "VoiceCatalogPublic",
+    # Task models
+    "AITask",
+    "TaskStatus",
+    "TaskType",
+    "TaskStep",
+    "TaskCreate",
+    "TaskResponse",
+    "TaskListResponse",
+    "TaskStats",
 ]
