@@ -127,7 +127,7 @@ def read_user_me(session: SessionDep, current_user: CurrentUser):
         session, user_id=current_user.id
     )
     conversation_count = crud_user.get_user_conversation_count(
-        session, user_id=current_user.id
+        session=session, user_id=current_user.id
     )
 
     # 更新用户对象的统计字段

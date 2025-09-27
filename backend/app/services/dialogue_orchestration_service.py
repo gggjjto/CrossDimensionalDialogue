@@ -98,11 +98,22 @@ class DialogueOrchestrationService:
             if settings and settings.enable_tts and character_response.content:
                 audio_url = await self._generate_voice_response(
                     character_response.content,
-                    character.name,
+                    character,
                     db,
                     user_id,
                     conversation_id,
                 )
+
+                # 持久化到角色消息记录
+                try:
+                    if audio_url and character_message_obj:
+                        character_message_obj.audio_url = audio_url
+                        character_message_obj.updated_at = datetime.utcnow()
+                        db.add(character_message_obj)
+                        db.commit()
+                except Exception:
+                    # 不因持久化失败而中断
+                    pass
 
             return {
                 "success": True,
@@ -161,7 +172,9 @@ class DialogueOrchestrationService:
                 max_tokens=settings.max_tokens if settings else 1000,
             )
 
-            logger.info("角色回复生成成功: %s, 回复内容: %s", character.name, response.content)
+            logger.info(
+                "角色回复生成成功: %s, 回复内容: %s", character.name, response.content
+            )
             return response
 
         except Exception as e:
@@ -220,7 +233,6 @@ class DialogueOrchestrationService:
             if not text or not text.strip():
                 logger.warning("文本为空，跳过语音生成")
                 return None
-
 
             # 使用角色的默认音色
             voice = character.default_voice
@@ -342,10 +354,18 @@ class DialogueOrchestrationService:
                 logger.error("语音识别失败，无法获取文本内容")
                 raise ValueError("语音识别失败，无法获取文本内容")
 
-            # 3. 保存用户语音消息（以文本形式）
+            # 3. 保存用户语音消息（以文本形式），并记录原始音频URL
             user_message_obj = await self._save_user_message(
                 db, conversation_id, stt_text, user_id
             )
+            try:
+                if user_message_obj and audio_url:
+                    user_message_obj.audio_url = audio_url
+                    user_message_obj.updated_at = datetime.utcnow()
+                    db.add(user_message_obj)
+                    db.commit()
+            except Exception:
+                pass
 
             # 4. 获取角色信息
             character = db_conversation.character
@@ -366,7 +386,7 @@ class DialogueOrchestrationService:
             # 7. 更新会话统计
             await self._update_conversation_stats(db, db_conversation)
 
-            # 8. 生成语音回复（如果启用）
+            # 8. 生成语音回复（如果启用），并将生成的音频URL写入角色消息
             audio_response_url = None
             voice_used = None
             if settings and settings.enable_tts and character_response.content:
@@ -380,6 +400,15 @@ class DialogueOrchestrationService:
                         voice_preference,
                     )
                 )
+
+                try:
+                    if audio_response_url and character_message_obj:
+                        character_message_obj.audio_url = audio_response_url
+                        character_message_obj.updated_at = datetime.utcnow()
+                        db.add(character_message_obj)
+                        db.commit()
+                except Exception:
+                    pass
 
             return {
                 "success": True,
@@ -478,6 +507,7 @@ class DialogueOrchestrationService:
         except Exception as e:
             logger.error("生成语音回复失败: %s", str(e))
             return None, None
+
     async def get_conversation_context(
         self,
         db: Session,
