@@ -1,5 +1,12 @@
 import { useRef, useEffect, useState } from "react"
-import { Box, VStack, HStack, Text, Heading, IconButton } from "@chakra-ui/react"
+import {
+  Box,
+  VStack,
+  HStack,
+  Text,
+  Heading,
+  IconButton,
+} from "@chakra-ui/react"
 import { LuVolume2, LuVolumeX } from "react-icons/lu"
 import ExpandableText from "@/components/Common/ExpandableText"
 
@@ -94,10 +101,10 @@ export default function ChatList({ messages, character }: ChatListProps) {
               </HStack>
 
               <HStack align="start">
-                <Text fontWeight="bold" color="accent.foreground">
+                {/* <Text fontWeight="bold" color="accent.foreground">
                   简介:
-                </Text>
-                <Text>{character?.short_bio || "-"}</Text>
+                </Text> */}
+                <Text>简介: {character?.short_bio || "-"}</Text>
               </HStack>
             </VStack>
 
@@ -109,14 +116,16 @@ export default function ChatList({ messages, character }: ChatListProps) {
               w="full"
             >
               <ExpandableText
-                maxLines={3}
+                maxLines={1}
                 fontSize="sm"
                 lineHeight="1.6"
                 color="rgba(255,255,255,0.9)"
                 buttonColor="accent.foreground"
                 buttonSize="sm"
               >
-                {character?.persona_text || character?.short_bio || "暂无更多描述"}
+                {character?.persona_text ||
+                  character?.short_bio ||
+                  "暂无更多描述"}
               </ExpandableText>
             </Box>
           </VStack>

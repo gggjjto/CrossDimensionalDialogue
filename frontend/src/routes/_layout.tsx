@@ -4,9 +4,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 export const Route = createFileRoute("/_layout")({
   component: Layout,
   beforeLoad: async () => {
-    // TODO: 实现真正的鉴权逻辑
-    // 现在先暂时允许访问，避免无限重定向
-    const isAuthenticated = true // 临时设置为 true
+    const isAuthenticated = localStorage.getItem("access_token")
     if (!isAuthenticated) {
       throw redirect({
         to: "/login",

@@ -6,7 +6,7 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
 import { useEffect, useState } from "react"
 
@@ -23,6 +23,14 @@ import { toaster } from "@/components/ui/toaster"
 
 export const Route = createFileRoute("/create-agent/_layout/ip")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    const isAuthenticated = localStorage.getItem("access_token")
+    if (!isAuthenticated) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
 })
 
 export interface CreateAgentForm {
@@ -154,7 +162,10 @@ function RouteComponent() {
 
       // 1) 基于已创建的角色创建一个会话
       if (!state.createdCharacterId) {
-        toaster.error({ title: "缺少角色ID", description: "请先点击‘角色生成’创建角色" })
+        toaster.error({
+          title: "缺少角色ID",
+          description: "请先点击‘角色生成’创建角色",
+        })
         return
       }
       const conv = await conversationsApi.createConversation({
@@ -240,7 +251,10 @@ function RouteComponent() {
                 style
               )
               if (img.avatar_url) {
-                dispatch({ type: "SET_GENERATED_IMAGES", payload: [img.avatar_url] })
+                dispatch({
+                  type: "SET_GENERATED_IMAGES",
+                  payload: [img.avatar_url],
+                })
                 toaster.success({ title: "已重新生成图片" })
               }
             } catch (e: any) {

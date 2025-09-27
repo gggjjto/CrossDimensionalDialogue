@@ -17,7 +17,10 @@ export default function IndexAside() {
   useEffect(() => {
     ;(async () => {
       try {
-        const res = await conversationsApi.getConversations({ skip: 0, limit: 10 })
+        const res = await conversationsApi.getConversations({
+          skip: 0,
+          limit: 10,
+        })
         setRecent(res.conversations)
       } catch {
         setRecent([])
@@ -37,6 +40,7 @@ export default function IndexAside() {
       borderRightWidth="1px"
       borderColor="border.default"
       h={"full"}
+      w={"full"}
     >
       <Box w={"100%"} px={6} py={2}>
         <HStack gap="2">
@@ -102,15 +106,23 @@ export default function IndexAside() {
                 padding={2}
                 borderRadius={"md"}
                 transition={"all 0.2s ease-in-out"}
-                onClick={() => navigate({ to: "/$id", params: { id: conv.id } })}
+                onClick={() =>
+                  navigate({ to: "/$id", params: { id: conv.id } })
+                }
               >
                 <HStack gap="2">
                   <Avatar.Root>
                     <Avatar.Fallback name={conv.character?.name || "角色"} />
-                    <Avatar.Image src={conv.character?.avatar_url || "/assets/images/agent.png"} />
+                    <Avatar.Image
+                      src={
+                        conv.character?.avatar_url || "/assets/images/agent.png"
+                      }
+                    />
                   </Avatar.Root>
                   <Stack gap="0">
-                    <Text fontWeight="medium">{conv.character?.name || conv.title}</Text>
+                    <Text fontWeight="medium">
+                      {conv.character?.name || conv.title}
+                    </Text>
                     <Text color="fg.muted" textStyle="xs">
                       {conv.description || "点击继续对话"}
                     </Text>

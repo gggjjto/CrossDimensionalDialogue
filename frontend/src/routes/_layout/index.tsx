@@ -1,33 +1,34 @@
-import { Box, Input, Text, Image, HStack, Stack } from "@chakra-ui/react"
+import {
+  Box,
+  Input,
+  Text,
+  Image,
+  HStack,
+  Stack,
+  Spinner,
+} from "@chakra-ui/react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { CiSearch } from "react-icons/ci"
 import { BsChatDots, BsHeart } from "react-icons/bs"
+import { useDebounce } from "ahooks"
 
 import IndexAside from "@/components/Common/Aside"
 import { InputGroup } from "@/components/ui/input-group"
 import MasonryGrid from "@/components/index/MasonryGrid"
-import { useEffect } from "react"
-import { charactersApi } from "@/api/characters"
+import { useAgentList } from "@/hooks/query/useAgentList"
 import type { CharacterPublic } from "@/api/characters/type"
+import EmptyState from "@/components/user/EmptyState"
 
 export const Route = createFileRoute("/_layout/")({
   component: RouteComponent,
 })
 
-interface ItemCardProps {
-  title: string
-  author: string
-  comments: number
-  likes: number
-  src: string
-}
-
-function ItemCard(props: ItemCardProps) {
+function ItemCard(props: CharacterPublic) {
   const [isHoverImage, setIsHoverImage] = useState(false)
   const navigate = useNavigate()
 
-  const { title, author, comments, likes, src } = props
+  const { name, short_bio, avatar_url } = props
   return (
     <Box
       position={"relative"}
@@ -44,8 +45,8 @@ function ItemCard(props: ItemCardProps) {
       <Image
         transform={isHoverImage ? "scale(1.1)" : "scale(1)"}
         transition={"all 0.3s ease"}
-        src={src}
-        alt={title}
+        src={avatar_url}
+        alt={name}
         w="full"
         h="auto"
         display="block"
@@ -71,7 +72,7 @@ function ItemCard(props: ItemCardProps) {
         zIndex={2}
       >
         <Text lineClamp={2} fontWeight="medium">
-          {title}
+          {name}
         </Text>
         <HStack gap="2" mt={2} alignItems="center">
           {/* <Avatar.Root>
@@ -79,7 +80,7 @@ function ItemCard(props: ItemCardProps) {
             <Avatar.Image />
           </Avatar.Root> */}
           <Stack gap="0">
-            <Text fontWeight="medium">{author}</Text>
+            <Text fontWeight="medium">{short_bio}</Text>
             <Box
               display={"flex"}
               gap={2}
@@ -88,11 +89,11 @@ function ItemCard(props: ItemCardProps) {
             >
               <Text display={"flex"} alignItems={"center"} gap={1}>
                 <BsChatDots />
-                {comments}
+                {0}
               </Text>
               <Text display={"flex"} alignItems={"center"} gap={1}>
                 <BsHeart />
-                {likes}
+                {0}
               </Text>
             </Box>
           </Stack>
@@ -103,64 +104,18 @@ function ItemCard(props: ItemCardProps) {
 }
 
 function RouteComponent() {
-  // 角色数据与加载状态
-  const [items, setItems] = useState<CharacterPublic[]>([])
-  const [search, setSearch] = useState("")
-  const [hasMore, setHasMore] = useState(true)
-  const [skip, setSkip] = useState(0)
-  const limit = 20
+  const [searchInput, setSearchInput] = useState("")
 
-  const mapToCardItem = (c: CharacterPublic) => ({
-    title: c.name,
-    author: "",
-    comments: 0,
-    likes: 0,
-    src: c.avatar_url || `https://picsum.photos/seed/${c.id}/400/360`,
-  })
+  const debouncedSearchInput = useDebounce(searchInput, { wait: 500 })
 
-  const loadMore = async () => {
-    if (search.trim()) {
-      const res = await charactersApi.search(search.trim(), { offset: skip, limit })
-      // 转换搜索结果到角色列表（接口返回 results 数组，包含 character 字段）
-      const list = (res.results || []).map((r: any) => r.character).filter(Boolean) as CharacterPublic[]
-      const next = [...items, ...list]
-      setItems(next)
-      setSkip(skip + list.length)
-      if (next.length >= res.total || list.length < limit) setHasMore(false)
-    } else {
-      const res = await charactersApi.getPublicCharacters({ skip, limit })
-      const list = res.characters
-      const next = [...items, ...list]
-      setItems(next)
-      setSkip(skip + list.length)
-      if (next.length >= res.total || list.length < limit) setHasMore(false)
-    }
-  }
-
-  // 首次页搜索/刷新，避免旧 skip/items 影响结果
-  const runFirstPage = async () => {
-    const keyword = search.trim()
-    const pageOffset = 0
-    setHasMore(true)
-    if (keyword) {
-      const res = await charactersApi.search(keyword, { offset: pageOffset, limit })
-      const list = (res.results || []).map((r: any) => r.character).filter(Boolean) as CharacterPublic[]
-      setItems(list)
-      setSkip(list.length)
-      if (list.length >= res.total || list.length < limit) setHasMore(false)
-    } else {
-      const res = await charactersApi.getPublicCharacters({ skip: pageOffset, limit })
-      setItems(res.characters)
-      setSkip(res.characters.length)
-      if (res.characters.length >= res.total || res.characters.length < limit) setHasMore(false)
-    }
-  }
-
-  useEffect(() => {
-    // 首次加载
-    loadMore()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // 使用自定义钩子管理角色列表数据
+  const {
+    characters,
+    isLoading: isLoadingList,
+    hasMore,
+    isFetchingNextPage,
+    loadMore,
+  } = useAgentList(debouncedSearchInput)
 
   return (
     <Box w={"full"} h={"full"} display={"flex"}>
@@ -185,15 +140,23 @@ function RouteComponent() {
           p={4}
           bg={"bg.default"}
         >
-          <InputGroup w={"50%"} startElement={<CiSearch onClick={runFirstPage} style={{ cursor: "pointer" }} />}>
+          <InputGroup
+            w={"50%"}
+            startElement={
+              <CiSearch
+                onClick={() => setSearchInput(searchInput.trim())}
+                style={{ cursor: "pointer" }}
+              />
+            }
+          >
             <Input
               placeholder="搜索AI角色..."
               variant="subtle"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={async (e) => {
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  await runFirstPage()
+                  setSearchInput(searchInput.trim())
                 }
               }}
             />
@@ -210,40 +173,48 @@ function RouteComponent() {
         </Box>
 
         <Box w={"100%"} h={"100%"} pb={10}>
-          <MasonryGrid
-            items={items}
-            getKey={(_, i) => i}
-            gutter="2px"
-            hasMore={hasMore}
-            onLoadMore={loadMore}
-            loader={
-              <Text textAlign="center" py={4}>
-                加载中...
-              </Text>
-            }
-            endMessage={
-              <Text textAlign="center" py={4}>
-                没有更多了
-              </Text>
-            }
-            scrollableTarget="scrollable-content"
-            render={(item) => {
-              const card = mapToCardItem(item as unknown as CharacterPublic)
-              return (
-                <ItemCard
-                  title={card.title}
-                  author={card.author}
-                  comments={card.comments}
-                  likes={card.likes}
-                  src={card.src}
-                />
-              )
-            }}
-          />
+          {isLoadingList ? (
+            <Box
+              w={"100%"}
+              display={"flex"}
+              alignItems={"center"}
+              justifyContent={"center"}
+            >
+              <Spinner />
+            </Box>
+          ) : characters && characters.length > 0 ? (
+            <MasonryGrid
+              items={characters ?? []}
+              getKey={(_, i) => i}
+              gutter="2px"
+              hasMore={hasMore}
+              onLoadMore={loadMore}
+              loader={
+                <Text textAlign="center" py={4}>
+                  {isFetchingNextPage ? "加载中..." : "加载更多..."}
+                </Text>
+              }
+              endMessage={
+                <Text textAlign="center" py={4}>
+                  没有更多了
+                </Text>
+              }
+              scrollableTarget="scrollable-content"
+              render={(item) => {
+                return <ItemCard {...item} />
+              }}
+            />
+          ) : (
+            <EmptyState
+              title="这里什么也没有~"
+              subtitle="赶快去选择你想创建的角色吧~"
+              actionText="点击去创建→"
+              actionLink="/create-agent"
+              minH={0}
+            />
+          )}
         </Box>
       </Box>
     </Box>
   )
 }
-
-// 已改为从后端加载公开角色列表

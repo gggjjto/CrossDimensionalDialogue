@@ -4,12 +4,7 @@ import { useState } from "react"
 
 import { request } from "@/utils/request"
 import { userApi } from "@/api/user"
-import type {
-  CurrentUser,
-  LoginCredentials,
-  LoginResponse,
-  RegisterCredentials,
-} from "@/api/user/type"
+import type { CurrentUser, RegisterCredentials } from "@/api/user/type"
 
 // 检查是否已登录
 export function isLoggedIn(): boolean {
@@ -30,28 +25,6 @@ export default function useAuth() {
       return data
     },
     enabled: isLoggedIn(),
-  })
-
-  // 登录
-  const loginMutation = useMutation({
-    mutationFn: async (credentials: { email: string; password: string }) => {
-      const payload: LoginCredentials = {
-        username: credentials.email,
-        password: credentials.password,
-      }
-      const res: LoginResponse = await userApi.login(payload)
-      return res
-    },
-    onSuccess: (data) => {
-      localStorage.setItem("access_token", data.access_token)
-      localStorage.setItem("token_type", data.token_type)
-      setError(null)
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-      navigate({ to: "/" })
-    },
-    onError: (err: any) => {
-      setError(err?.message || "登录失败，请检查用户名和密码")
-    },
   })
 
   // 注册（成功后自动登录并跳转）
@@ -96,10 +69,8 @@ export default function useAuth() {
   return {
     user,
     error,
-    loginMutation,
     registerMutation,
     logout,
     resetError,
-    isLoading: loginMutation.isPending,
   }
 }

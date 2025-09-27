@@ -1,12 +1,20 @@
 import { Button } from "@/components/ui/button"
 import { Box, Center, Text } from "@chakra-ui/react"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { GoArrowLeft } from "react-icons/go"
 import { LuArrowRight } from "react-icons/lu"
 
 export const Route = createFileRoute("/create-agent/_layout/")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    const isAuthenticated = localStorage.getItem("access_token")
+    if (!isAuthenticated) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
 })
 
 const sources = [
