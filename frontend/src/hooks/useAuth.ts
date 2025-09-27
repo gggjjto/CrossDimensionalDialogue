@@ -2,75 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 
-// TODO: 根据实际后端API调整这些类型
-interface User {
-  id: number
-  email: string
-  full_name?: string
-  is_active: boolean
-  is_superuser: boolean
-}
+import { request } from "@/utils/request"
+import { userApi } from "@/api/user"
+import type {
+  CurrentUser,
+  LoginCredentials,
+  LoginResponse,
+  RegisterCredentials,
+} from "@/api/user/type"
 
-interface LoginCredentials {
-  email: string
-  password: string
-}
-
-interface RegisterCredentials {
-  email: string
-  password: string
-  full_name: string
-}
-
-interface AuthResponse {
-  access_token: string
-  token_type: string
-}
-
-// 临时的认证API - 您可以替换为实际的API调用
-const authAPI = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    // TODO: 替换为实际的登录API调用
-    console.log("Login attempt:", credentials)
-    return {
-      access_token: "fake-token",
-      token_type: "bearer",
-    }
-  },
-
-  register: async (payload: RegisterCredentials): Promise<AuthResponse> => {
-    // TODO: 替换为实际的注册API调用
-    console.log("Register attempt:", payload)
-    // 模拟注册成功后直接返回token（或改为跳转到登录页）
-    return {
-      access_token: "fake-token",
-      token_type: "bearer",
-    }
-  },
-
-  getCurrentUser: async (): Promise<User> => {
-    // TODO: 替换为实际的获取当前用户API调用
-    return {
-      id: 1,
-      email: "test@example.com",
-      full_name: "Test User",
-      is_active: true,
-      is_superuser: false,
-    }
-  },
-
-  logout: async (): Promise<void> => {
-    // TODO: 实现登出逻辑
-    console.log("Logout")
-  },
-}
-
-// 检查是否已登录的辅助函数
+// 检查是否已登录
 export function isLoggedIn(): boolean {
-  // TODO: 实现真正的登录状态检查逻辑
-  // 可以检查 localStorage 中的 token 或其他状态
   const token = localStorage.getItem("access_token")
-
   return !!token
 }
 
@@ -82,79 +25,73 @@ export default function useAuth() {
   // 获取当前用户信息
   const { data: user } = useQuery({
     queryKey: ["currentUser"],
-    queryFn: authAPI.getCurrentUser,
-    enabled: isLoggedIn(), // 只有在已登录时才获取用户信息
+    queryFn: async (): Promise<CurrentUser> => {
+      const data = await request.get<CurrentUser>("/v1/users/me")
+      return data
+    },
+    enabled: isLoggedIn(),
   })
 
-  // 登录mutation
+  // 登录
   const loginMutation = useMutation({
-    mutationFn: authAPI.login,
+    mutationFn: async (credentials: { email: string; password: string }) => {
+      const payload: LoginCredentials = {
+        username: credentials.email,
+        password: credentials.password,
+      }
+      const res: LoginResponse = await userApi.login(payload)
+      return res
+    },
     onSuccess: (data) => {
-      // 保存token到localStorage
       localStorage.setItem("access_token", data.access_token)
       localStorage.setItem("token_type", data.token_type)
-
-      // 清除错误状态
       setError(null)
-
-      // 重新获取用户信息
       queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-
-      // 导航到首页
       navigate({ to: "/" })
     },
-    onError: (error: any) => {
-      console.error("Login failed:", error)
-      setError("登录失败，请检查用户名和密码")
+    onError: (err: any) => {
+      setError(err?.message || "登录失败，请检查用户名和密码")
     },
   })
 
-  // 注册mutation
+  // 注册（成功后自动登录并跳转）
   const registerMutation = useMutation({
-    mutationFn: authAPI.register,
+    mutationFn: async (payload: RegisterCredentials) => {
+      await userApi.register(payload)
+      // 注册后自动登录
+      const loginRes = await userApi.login({
+        username: payload.email,
+        password: payload.password,
+      })
+      return loginRes
+    },
     onSuccess: (data) => {
-      // 保存token到localStorage（如无需自动登录，可改为仅提示并跳转登录页）
       localStorage.setItem("access_token", data.access_token)
       localStorage.setItem("token_type", data.token_type)
-
-      // 清除错误状态
       setError(null)
-
-      // 刷新当前用户信息
       queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-
-      // 导航到首页
       navigate({ to: "/" })
     },
-    onError: (error: any) => {
-      console.error("Register failed:", error)
-      setError("注册失败，请检查输入信息")
+    onError: (err: any) => {
+      setError(err?.message || "注册失败，请检查输入信息")
     },
   })
 
-  // 登出函数
   const logout = async () => {
     try {
-      await authAPI.logout()
-
       // 清除本地存储
       localStorage.removeItem("access_token")
       localStorage.removeItem("token_type")
-
       // 清除查询缓存
       queryClient.clear()
-
-      // 导航到登录页
+      // 跳转登录
       navigate({ to: "/login" })
     } catch (error) {
-      console.error("Logout failed:", error)
+      // no-op
     }
   }
 
-  // 重置错误状态
-  const resetError = () => {
-    setError(null)
-  }
+  const resetError = () => setError(null)
 
   return {
     user,

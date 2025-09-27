@@ -36,6 +36,7 @@ export default function ExtraInfoForm(props: ExtraInfoFormProps) {
     register,
     watch,
     formState: { errors, isValid },
+    reset,
   } = useForm<ExtraInfoValues>({
     mode: "onBlur",
     criteriaMode: "all",
@@ -62,6 +63,11 @@ export default function ExtraInfoForm(props: ExtraInfoFormProps) {
     dispatch({ type: "SET_EXTRA_DATA", payload: values })
     dispatch({ type: "SET_EXTRA_FORM_VALID", payload: isValid })
   }, [values, isValid, dispatch])
+
+  // 当外部的 extraData（来自生成设定的写入）变化时，重置表单以回填到输入框
+  useEffect(() => {
+    reset(state.extraData)
+  }, [state.extraData, reset])
 
   return (
     <Box w={"full"} spaceY={6}>

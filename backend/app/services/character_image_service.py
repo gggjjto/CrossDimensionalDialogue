@@ -97,11 +97,11 @@ class CharacterImageService:
         """
         构建图片生成提示词（中文版本）
         """
-        base_prompt = f"一幅{style}风格的{character.name}肖像"
+        base_prompt = f"一幅{style}风格的肖像,名字是：{character.name}"
 
         # 添加角色简介
         if character.short_bio:
-            base_prompt += f"，{character.short_bio}"
+            base_prompt += f"，简介：{character.short_bio}"
 
         # 添加人格特征
         if character.persona_text:
