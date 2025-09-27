@@ -1,14 +1,20 @@
-import { Box, Stack, Text } from "@chakra-ui/react"
+import { Box, BoxProps, Stack, Text } from "@chakra-ui/react"
 import { Link as RouterLink } from "@tanstack/react-router"
 
-interface EmptyStateProps {
+interface EmptyStateProps extends BoxProps {
   title: string
   subtitle: string
   actionText?: string
   actionLink?: string
 }
 
-export default function EmptyState({ title, subtitle, actionText, actionLink }: EmptyStateProps) {
+export default function EmptyState({
+  title,
+  subtitle,
+  actionText,
+  actionLink,
+  ...props
+}: EmptyStateProps) {
   return (
     <Box
       display="flex"
@@ -16,14 +22,15 @@ export default function EmptyState({ title, subtitle, actionText, actionLink }: 
       justifyContent="center"
       minH="400px"
       textAlign="center"
+      {...props}
     >
       <Stack gap={4}>
         {/* 主标题 */}
-        <Text fontSize="25px" color="fg.default" fontWeight="bold">
-          {title} 
+        <Text fontSize="18px" color="fg.default" fontWeight="bold">
+          {title}
         </Text>
         {/* 副标题 */}
-        <Text fontSize="30px" color="fg.muted">
+        <Text fontSize="16px" color="fg.muted">
           {subtitle}
         </Text>
         {/* 操作按钮 */}
@@ -32,9 +39,9 @@ export default function EmptyState({ title, subtitle, actionText, actionLink }: 
             to={actionLink}
             style={{
               color: "var(--chakra-colors-info-default)",
-              fontSize: "15px",
+              fontSize: "14px",
               fontWeight: "500",
-              textDecoration: "none"
+              textDecoration: "none",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.textDecoration = "underline"
