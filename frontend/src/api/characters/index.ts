@@ -12,6 +12,25 @@ export const charactersApi = {
       params: { ...params } as Record<string, unknown>,
     })
   },
+  /** 搜索公开角色（服务端搜索） */
+  search: async (
+    query: string,
+    params: { offset?: number; limit?: number; search_type?: "text" | "vector" | "hybrid"; is_active?: boolean; tag_ids?: string[] } = {}
+  ) => {
+    return request.get<{ results: any[]; total: number; query: string; search_type: string }>(
+      "/v1/characters/search",
+      {
+        params: {
+          query,
+          search_type: params.search_type ?? "text",
+          offset: params.offset ?? 0,
+          limit: params.limit ?? 20,
+          is_active: params.is_active ?? true,
+          tag_ids: params.tag_ids,
+        } as Record<string, unknown>,
+      }
+    )
+  },
   /** 创建角色（需要登录） */
   createCharacter: async (body: {
     name: string

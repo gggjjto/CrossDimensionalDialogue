@@ -21,6 +21,14 @@ export const userApi = {
       }
     )
   },
+  /** 获取当前用户信息 */
+  me: async () => {
+    return request.get<any>('/v1/users/me')
+  },
+  /** 更新当前用户信息 */
+  updateMe: async (body: Partial<{ full_name: string; email: string; avatar_url: string; bio: string; gender: 'male' | 'female' | 'other' }>) => {
+    return request.patch<any>('/v1/users/me', body)
+  },
   /** 注册 */
   register: async (body: RegisterCredentials) => {
     return request.post("/v1/users/signup", body)
