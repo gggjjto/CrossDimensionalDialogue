@@ -16,7 +16,7 @@ import { useDebounce } from "ahooks"
 import IndexAside from "@/components/Common/Aside"
 import { InputGroup } from "@/components/ui/input-group"
 import MasonryGrid from "@/components/index/MasonryGrid"
-import { useAgentList } from "@/hooks/useAgentList"
+import { useAgentList } from "@/hooks/query/useAgentList"
 import type { CharacterPublic } from "@/api/characters/type"
 import EmptyState from "@/components/user/EmptyState"
 

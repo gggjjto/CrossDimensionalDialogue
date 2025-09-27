@@ -20,7 +20,7 @@ import { LuArrowRight } from "react-icons/lu"
 import { Button } from "@/components/ui/button"
 import { InputGroup } from "@/components/ui/input-group"
 import { PasswordInput } from "@/components/ui/password-input"
-import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/query/useAuth"
 import {
   confirmPasswordRules,
   emailPattern,
