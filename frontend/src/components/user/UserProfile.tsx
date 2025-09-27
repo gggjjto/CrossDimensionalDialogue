@@ -12,10 +12,11 @@ import {
   Textarea,
   createListCollection,
 } from "@chakra-ui/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FiEdit, FiUpload } from "react-icons/fi"
 
 import UserStats from "@/components/user/UserStats"
+import { userApi } from "@/api/user"
 
 // 性别选项集合
 const genderOptions = createListCollection({
@@ -29,20 +30,54 @@ const genderOptions = createListCollection({
 export default function UserProfile() {
   const [isEditing, setIsEditing] = useState(false)
   const [userInfo, setUserInfo] = useState({
-    username: "张小明",
+    username: "",
     gender: "male",
-    uid: "1111111",
-    email: "zhang@example.com",
-    bio: "热爱AI技术的产品经理,喜欢尝试各种有趣的AI工具。",
+    uid: "",
+    email: "",
+    bio: "",
+    avatar_url: "",
+    created_at: "",
+    character_count: 0,
+    conversation_count: 0,
   })
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const me = await userApi.me()
+        setUserInfo({
+          username: me.full_name || me.email?.split('@')[0] || "",
+          gender: me.gender || "male",
+          uid: me.id,
+          email: me.email || "",
+          bio: me.bio || "",
+          avatar_url: me.avatar_url || "",
+          created_at: me.created_at,
+          character_count: me.character_count ?? 0,
+          conversation_count: me.conversation_count ?? 0,
+        })
+      } catch {
+        // 忽略加载失败
+      }
+    })()
+  }, [])
 
   const handleEdit = () => {
     setIsEditing(!isEditing)
   }
 
-  const handleSave = () => {
-    // TODO: 保存用户信息到后端
-    setIsEditing(false)
+  const handleSave = async () => {
+    try {
+      await userApi.updateMe({
+        full_name: userInfo.username,
+        avatar_url: userInfo.avatar_url,
+        bio: userInfo.bio,
+        gender: userInfo.gender as any,
+      })
+      setIsEditing(false)
+    } catch {
+      // 简单失败回退
+    }
   }
 
   const handleCancel = () => {
@@ -54,8 +89,8 @@ export default function UserProfile() {
       {/* 用户头像 */}
       <Box position="relative" alignSelf="center">
         <Avatar.Root size="full">
-          <Avatar.Image src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face" />
-          <Avatar.Fallback name={userInfo.username} />
+          <Avatar.Image src={userInfo.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face"} />
+          <Avatar.Fallback name={userInfo.username || "用户"} />
         </Avatar.Root>
         <Button
           position="absolute"
@@ -228,7 +263,7 @@ export default function UserProfile() {
       </Box>
 
 
-      {/* 使用统计卡片 */}
+      {/* 使用统计卡片（恢复为之前的UI） */}
       <Box
         bg="surface.default"
         borderRadius="md"

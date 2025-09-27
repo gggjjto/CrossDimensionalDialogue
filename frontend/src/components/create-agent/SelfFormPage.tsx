@@ -1,12 +1,4 @@
-import {
-  Container,
-  Flex,
-  HStack,
-  Text,
-  Textarea,
-  Box,
-  Image,
-} from "@chakra-ui/react"
+import { Container, Flex, HStack, Text, Textarea, Box, Image } from "@chakra-ui/react"
 import { Controller, useForm } from "react-hook-form"
 import { useEffect } from "react"
 
@@ -16,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Radio, RadioGroup } from "@/components/ui/radio"
 import { styleRules } from "@/utils/rules"
 import { useSelfAgent } from "@/contexts/SelfAgentContext"
+import { imageApi } from "@/api/image"
+import { charactersApi } from "@/api/characters"
 
 export interface SelfForm {
   style: "" | "real" | "anime"
@@ -56,18 +50,14 @@ export default function SelfFormPage() {
     dispatch({ type: "SET_SELF_FORM", payload: data })
     dispatch({ type: "SET_GENERATING", payload: true })
     try {
-      // eslint-disable-next-line no-console
-      console.log("generate-image", data)
-
-      // 模拟 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // 模拟生成图片
-      const images = [
-        "https://picsum.photos/400/600?random=1",
-        "https://picsum.photos/400/600?random=2",
-      ]
-      dispatch({ type: "SET_GENERATED_IMAGES", payload: images })
+      // 使用描述作为 prompt 生成图片（真实接口）
+      const style = data.style === "anime" ? "anime" : "realistic"
+      const res1 = await imageApi.generate({ prompt: data.description, style })
+      const res2 = await imageApi.generate({ prompt: data.description, style })
+      const images = [res1.url, res2.url].filter(Boolean)
+      if (images.length > 0) {
+        dispatch({ type: "SET_GENERATED_IMAGES", payload: images as string[] })
+      }
     } finally {
       dispatch({ type: "SET_GENERATING", payload: false })
     }
@@ -77,18 +67,13 @@ export default function SelfFormPage() {
   const onRegenerate = async () => {
     dispatch({ type: "SET_GENERATING", payload: true })
     try {
-      // eslint-disable-next-line no-console
-      console.log("重新生成图片")
-
-      // 模拟 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // 模拟重新生成图片
-      const images = [
-        "https://picsum.photos/400/600?random=3",
-        "https://picsum.photos/400/600?random=4",
-      ]
-      dispatch({ type: "SET_GENERATED_IMAGES", payload: images })
+      const style = (state.selfFormData.style || "real") === "anime" ? "anime" : "realistic"
+      const res1 = await imageApi.generate({ prompt: state.selfFormData.description, style })
+      const res2 = await imageApi.generate({ prompt: state.selfFormData.description, style })
+      const images = [res1.url, res2.url].filter(Boolean)
+      if (images.length > 0) {
+        dispatch({ type: "SET_GENERATED_IMAGES", payload: images as string[] })
+      }
     } finally {
       dispatch({ type: "SET_GENERATING", payload: false })
     }
@@ -205,25 +190,30 @@ export default function SelfFormPage() {
               生成的角色形象
             </Text>
             <Flex gap={4} justify={"center"} align={"center"}>
-              {state.generatedImages.map((src, index) => (
-                <Box
-                  key={index}
-                  position={"relative"}
-                  borderRadius={"md"}
-                  overflow={"hidden"}
-                  boxShadow={"lg"}
-                  border={"2px solid"}
-                  borderColor={"gray.200"}
-                >
-                  <Image
-                    src={src}
-                    alt={`生成的角色形象 ${index + 1}`}
-                    w={"300px"}
-                    h={"400px"}
-                    objectFit={"cover"}
-                  />
-                </Box>
-              ))}
+              {state.generatedImages.map((src, index) => {
+                const isSelected = state.selectedImage === src
+                return (
+                  <Box
+                    key={index}
+                    position={"relative"}
+                    borderRadius={"md"}
+                    overflow={"hidden"}
+                    boxShadow={isSelected ? "xl" : "lg"}
+                    border={"3px solid"}
+                    borderColor={isSelected ? "blue.400" : "gray.200"}
+                    cursor={"pointer"}
+                    onClick={() => dispatch({ type: "SET_SELECTED_IMAGE", payload: src })}
+                  >
+                    <Image
+                      src={src}
+                      alt={`生成的角色形象 ${index + 1}`}
+                      w={"300px"}
+                      h={"400px"}
+                      objectFit={"cover"}
+                    />
+                  </Box>
+                )
+              })}
             </Flex>
             <Text color={"fg.muted"} fontSize={"sm"} textAlign={"center"}>
               滑动到下一页完善角色信息

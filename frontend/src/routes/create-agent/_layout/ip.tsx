@@ -6,7 +6,7 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
 import { useEffect, useState } from "react"
 
@@ -33,6 +33,7 @@ export interface CreateAgentForm {
 
 function RouteComponent() {
   const { state, dispatch } = useSelfAgent()
+  const navigate = useNavigate()
 
   // 设置模式为 ip
   useEffect(() => {
@@ -149,9 +150,34 @@ function RouteComponent() {
     try {
       dispatch({ type: "SET_CREATING", payload: true })
       const payload = { ...data, ...state.extraData }
-      // 这里可扩展：将额外信息更新到角色或创建会话等
       setLastAllSubmitted(payload)
+
+      // 1) 基于已创建的角色创建一个会话
+      if (!state.createdCharacterId) {
+        toaster.error({ title: "缺少角色ID", description: "请先点击‘角色生成’创建角色" })
+        return
+      }
+      const conv = await conversationsApi.createConversation({
+        title: `${state.ipFormData.roleName} 的对话`,
+        character_id: state.createdCharacterId,
+        description: state.extraData.publicInfo || undefined,
+        settings: {
+          enable_tts: false,
+          language: "zh-CN",
+        },
+      })
+
+      // 如果有开场白，作为角色消息写入会话
+      if (state.extraData.openingLine) {
+        await conversationsApi.createMessage(conv.id, {
+          sender_type: "character",
+          content: state.extraData.openingLine,
+        })
+      }
+
       toaster.success({ title: "创建完成" })
+      // 2) 跳转到聊天界面（以会话ID为路由参数）
+      navigate({ to: "/$id", params: { id: conv.id } })
     } catch (e: any) {
       toaster.error({ title: "创建失败", description: e?.message })
     } finally {
