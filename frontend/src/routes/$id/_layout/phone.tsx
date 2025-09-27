@@ -7,8 +7,8 @@ import {
 import { Box, Flex, VStack, HStack, Text, Button } from "@chakra-ui/react"
 import { FaPhoneSlash, FaMicrophone, FaMicrophoneSlash } from "react-icons/fa"
 import { useState, useEffect, useRef } from "react"
-import { voiceApi } from "@/api/voice"
-import { tasksApi } from "@/api/tasks"
+
+import { useVoiceStream } from "@/hooks/query/useVoiceStream"
 
 export const Route = createFileRoute("/$id/_layout/phone")({
   component: RouteComponent,
@@ -25,21 +25,16 @@ export const Route = createFileRoute("/$id/_layout/phone")({
 function RouteComponent() {
   const [isMuted, setIsMuted] = useState(false)
   const isMutedRef = useRef(false)
-  const [audioLevels, setAudioLevels] = useState([0.3, 0.6, 0.4, 0.8, 0.5])
-  const [autoPlay, setAutoPlay] = useState(true)
+  const [audioLevels, setAudioLevels] = useState<number[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const audioQueueRef = useRef<string[]>([])
-  const playingRef = useRef<boolean>(false)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const rafIdRef = useRef<number | null>(null)
-  // 任务顺序处理队列
-  const pendingChunksRef = useRef<string[]>([])
-  const processingRef = useRef<boolean>(false)
 
   const navigate = useNavigate()
   const { id } = useParams({ from: "/$id/_layout" })
+  // 从语音流钩子中获取控制项与清理方法
+  const { isPlaying, submitBlob, teardown } = useVoiceStream(id)
 
   // 启动麦克风录音（分段上传）
   useEffect(() => {
@@ -93,20 +88,7 @@ function RouteComponent() {
           const blob = ev.data
           if (!blob || blob.size < 8000) return // 过小片段忽略
           if (isMutedRef.current) return
-          try {
-            const file = new File([blob], `chunk_${Date.now()}.webm`, {
-              type: blob.type || "audio/webm",
-            })
-            const up = await voiceApi.uploadAudio(file)
-            // 限流：队列过长时丢弃最新片段，避免排队过久
-            if (pendingChunksRef.current.length >= 3 && processingRef.current) {
-              return
-            }
-            pendingChunksRef.current.push(up.audio_url)
-            maybeStartProcessor()
-          } catch {
-            // 忽略错误以保持通话流畅
-          }
+          await submitBlob(blob)
         }
         // 缩短分片大小，提升响应（~1.2s）
         recorder.start(1200)
@@ -133,73 +115,23 @@ function RouteComponent() {
   // 同步 isMuted 到 ref，避免 ondataavailable 闭包中取到过期值
   useEffect(() => {
     isMutedRef.current = isMuted
+    // 同步更新本地音轨的启用状态，达到真正静音/恢复
+    const ms = mediaStreamRef.current
+    if (ms) {
+      ms.getAudioTracks().forEach((track) => {
+        track.enabled = !isMuted
+      })
+    }
   }, [isMuted])
 
-  const enqueueAudio = (url: string) => {
-    audioQueueRef.current.push(url)
-    if (!playingRef.current && autoPlay) playNext()
-  }
-
-  const maybeStartProcessor = () => {
-    if (processingRef.current) return
-    processingRef.current = true
-    ;(async () => {
-      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
-      try {
-        while (pendingChunksRef.current.length > 0) {
-          const url = pendingChunksRef.current.shift()!
-          try {
-            const task = await voiceApi.processVoiceMessage({
-              conversation_id: id,
-              audio_file_url: url,
-            })
-            let tries = 0
-            const maxTries = 30
-            while (tries < maxTries) {
-              const t = await tasksApi.getTask(task.task_id)
-              if (t.status === "COMPLETED") {
-                const a = t.result?.audio_url as string | undefined
-                if (a) enqueueAudio(a)
-                break
-              }
-              if (t.status !== "PENDING" && t.status !== "PROCESSING") break
-              tries += 1
-              await delay(600)
-            }
-          } catch {
-            // 略过该分片
-          }
-          // 片间间隙，避免打爆后台
-          await delay(150)
-        }
-      } finally {
-        processingRef.current = false
-        // 若期间又有新分片进入，继续处理
-        if (pendingChunksRef.current.length > 0) {
-          maybeStartProcessor()
-        }
-      }
-    })()
-  }
-
-  const playNext = () => {
-    if (!audioRef.current) audioRef.current = new Audio()
-    const audio = audioRef.current
-    const next = audioQueueRef.current.shift()
-    if (!next) {
-      playingRef.current = false
-      return
+  // 当 AI 正在播放时，强制静音并禁用静音按钮，播放结束后用户可手动解除静音
+  useEffect(() => {
+    if (isPlaying) {
+      setIsMuted(true)
     }
-    playingRef.current = true
-    audio.src = next
-    audio.onended = () => {
-      playingRef.current = false
-      playNext()
-    }
-    audio.play().catch(() => {
-      playingRef.current = false
-    })
-  }
+  }, [isPlaying])
+
+  // 播放控制、排队处理已在 useVoiceStream 内部管理
 
   return (
     <Box
@@ -275,24 +207,6 @@ function RouteComponent() {
 
           {/* 控制按钮 */}
           <HStack gap="6" mt="8">
-            {/* 自动播放开关 */}
-            <Button
-              aria-label="自动播放语音"
-              size="lg"
-              borderRadius="full"
-              bg={autoPlay ? "green.500" : "whiteAlpha.200"}
-              color="white"
-              _hover={{
-                bg: autoPlay ? "green.600" : "whiteAlpha.300",
-                transform: "scale(1.05)",
-              }}
-              transition="all 0.2s"
-              onClick={() => setAutoPlay((v) => !v)}
-              p="4"
-            >
-              {autoPlay ? "自动播放：开" : "自动播放：关"}
-            </Button>
-
             {/* 静音按钮 */}
             <Button
               aria-label="静音"
@@ -305,6 +219,8 @@ function RouteComponent() {
                 transform: "scale(1.05)",
               }}
               transition="all 0.2s"
+              // AI 播放期间强制静音，且不可点击
+              disabled={isPlaying}
               onClick={() => setIsMuted(!isMuted)}
               p="4"
             >
@@ -328,7 +244,23 @@ function RouteComponent() {
               }}
               transition="all 0.2s"
               p="4"
-              onClick={() => navigate({ to: "/$id", params: { id: id } })}
+              onClick={() => {
+                // 挂断时：停止录音、关闭音轨、清空播放与待处理队列
+                try {
+                  if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
+                  const rec = recorderRef.current
+                  if (rec && rec.state !== "inactive") rec.stop()
+                } catch {}
+                const ms = mediaStreamRef.current
+                ms?.getTracks().forEach((t) => t.stop())
+                recorderRef.current = null
+                mediaStreamRef.current = null
+                analyserRef.current = null
+                // 停止播放并清理队列
+                teardown()
+                // 跳转回会话页
+                navigate({ to: "/$id", params: { id: id } })
+              }}
             >
               <FaPhoneSlash size="24" />
             </Button>

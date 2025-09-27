@@ -6,6 +6,7 @@ import ChatInput from "../../../components/chat/ChatInput"
 import ChatList from "../../../components/chat/ChatList"
 import SideDrawer from "../../../components/Common/SideDrawer"
 import { useConversationChat } from "@/hooks/useConversationChat"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export const Route = createFileRoute("/$id/_layout/")({
   component: RouteComponent,
@@ -32,6 +33,49 @@ function RouteComponent() {
     sendText,
     processVoiceFile,
   } = useConversationChat(params.id)
+
+  if (loading) {
+    return (
+      <Box minH="100vh" bg="bg.default">
+        <Flex h="100vh">
+          {/* 左侧图片骨架 */}
+          <Box flex="1" position="relative" overflow="hidden">
+            <Skeleton w="100%" h="100%" />
+          </Box>
+
+          {/* 右侧内容骨架 */}
+          <Box
+            flex="1"
+            position="relative"
+            bg="linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6))"
+            backdropFilter="blur(10px)"
+            color="white"
+          >
+            <Flex direction="column" h="100%" p="6">
+              <Box
+                flex="1"
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                gap="4"
+              >
+                <Spinner />
+                <Text
+                  fontSize="xs"
+                  color="rgba(255,255,255,0.6)"
+                  mt="2"
+                  textAlign="center"
+                >
+                  正在加载...
+                </Text>
+              </Box>
+            </Flex>
+          </Box>
+        </Flex>
+      </Box>
+    )
+  }
 
   return (
     <Box minH="100vh" bg="bg.default">
@@ -93,25 +137,14 @@ function RouteComponent() {
             {/* 聊天界面 */}
             <Box flex="1" display="flex" flexDirection="column" minH="0">
               {/* 聊天内容 - 可滚动区域（包含简介和消息） */}
-              {loading ? (
-                <Box
-                  flex="1"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Spinner color="white" />
-                </Box>
-              ) : (
-                <ChatList
-                  messages={messages}
-                  character={{
-                    name: character?.name,
-                    short_bio: character?.short_bio,
-                    persona_text: character?.persona_text,
-                  }}
-                />
-              )}
+              <ChatList
+                messages={messages}
+                character={{
+                  name: character?.name,
+                  short_bio: character?.short_bio,
+                  persona_text: character?.persona_text,
+                }}
+              />
 
               {/* 输入区域 - 固定在底部 */}
               <Box flexShrink="0">
