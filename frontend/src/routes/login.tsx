@@ -43,7 +43,7 @@ interface LoginFormData {
 }
 
 function Login() {
-  const { loginMutation, error, resetError } = useAuth()
+  const { error, resetError } = useAuth()
   const {
     register,
     handleSubmit,

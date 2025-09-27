@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from "@tanstack/react-router"
+import { createFileRoute, redirect, useParams } from "@tanstack/react-router"
 import { Box, Flex, Text, IconButton, Image, Spinner } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 
@@ -12,15 +12,35 @@ import { voiceApi } from "@/api/voice"
 
 export const Route = createFileRoute("/$id/_layout/")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    const isAuthenticated = localStorage.getItem("access_token")
+    if (!isAuthenticated) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
 })
 
 function RouteComponent() {
   const params = useParams({ from: "/$id/_layout/" })
   const [message, setMessage] = useState("")
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const [messages, setMessages] = useState<{ id: number; sender: "user" | "character"; content: string; audioUrl?: string }[]>([])
+  const [messages, setMessages] = useState<
+    {
+      id: number
+      sender: "user" | "character"
+      content: string
+      audioUrl?: string
+    }[]
+  >([])
   const [loading, setLoading] = useState(true)
-  const [character, setCharacter] = useState<{ name?: string; short_bio?: string; avatar_url?: string; persona_text?: string } | null>(null)
+  const [character, setCharacter] = useState<{
+    name?: string
+    short_bio?: string
+    avatar_url?: string
+    persona_text?: string
+  } | null>(null)
 
   // 加载会话详情与消息
   useEffect(() => {
@@ -32,20 +52,28 @@ function RouteComponent() {
         if (!mounted) return
         setCharacter({
           name: conv.character?.name,
-          short_bio: (conv.character as any)?.short_bio ?? (conv.character as any)?.shortbio,
+          short_bio:
+            (conv.character as any)?.short_bio ??
+            (conv.character as any)?.shortbio,
           avatar_url: conv.character?.avatar_url,
           persona_text: (conv.character as any)?.persona_text,
         })
-        const msgs = await conversationsApi.getMessages(params.id, { skip: 0, limit: 50 })
+        const msgs = await conversationsApi.getMessages(params.id, {
+          skip: 0,
+          limit: 50,
+        })
         if (!mounted) return
-        const mapped: { id: number; sender: "user" | "character"; content: string; audioUrl?: string }[] = msgs.messages.map(
-          (m, idx) => ({
-            id: idx + 1,
-            sender: m.sender_type === "user" ? "user" : "character",
-            content: m.content,
-            audioUrl: (m as any).audio_url,
-          })
-        )
+        const mapped: {
+          id: number
+          sender: "user" | "character"
+          content: string
+          audioUrl?: string
+        }[] = msgs.messages.map((m, idx) => ({
+          id: idx + 1,
+          sender: m.sender_type === "user" ? "user" : "character",
+          content: m.content,
+          audioUrl: (m as any).audio_url,
+        }))
         setMessages(mapped)
       } finally {
         if (mounted) setLoading(false)
@@ -61,12 +89,18 @@ function RouteComponent() {
     const text = message.trim()
     if (!text) return
     // 先本地追加，提升体验
-    const optimistic = { id: Date.now(), sender: "user" as const, content: text }
+    const optimistic = {
+      id: Date.now(),
+      sender: "user" as const,
+      content: text,
+    }
     setMessages([...messages, optimistic])
     setMessage("")
     try {
       // 1) 触发编排：异步任务
-      const task = await orchestrationApi.sendMessage(params.id, { message: text })
+      const task = await orchestrationApi.sendMessage(params.id, {
+        message: text,
+      })
       // 2) 轮询任务，直到 COMPLETED/FAILED
       let tries = 0
       const maxTries = 20
@@ -79,7 +113,15 @@ function RouteComponent() {
           if (full) {
             // 先插入一个空的角色消息
             const baseId = Date.now() + 1
-            setMessages((prev) => [...prev, { id: baseId, sender: "character", content: "", audioUrl: t.result?.audio_url as string | undefined }])
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: baseId,
+                sender: "character",
+                content: "",
+                audioUrl: t.result?.audio_url as string | undefined,
+              },
+            ])
             // 逐字追加
             let acc = ""
             for (const ch of full) {
@@ -97,7 +139,9 @@ function RouteComponent() {
           break
         }
         if (
-          t.status === "FAILED" || t.status === "CANCELLED" || t.status === "TIMEOUT"
+          t.status === "FAILED" ||
+          t.status === "CANCELLED" ||
+          t.status === "TIMEOUT"
         ) {
           break
         }
@@ -146,9 +190,21 @@ function RouteComponent() {
         {/* 左侧角色图片区域 */}
         <Box flex="1" position="relative" overflow="hidden">
           {character?.avatar_url ? (
-            <Image src={character.avatar_url} alt="角色图片" w="100%" h="100%" objectFit="cover" />
+            <Image
+              src={character.avatar_url}
+              alt="角色图片"
+              w="100%"
+              h="100%"
+              objectFit="cover"
+            />
           ) : (
-            <Image src="/assets/images/agent.png" alt="角色图片" w="100%" h="100%" objectFit="cover" />
+            <Image
+              src="/assets/images/agent.png"
+              alt="角色图片"
+              w="100%"
+              h="100%"
+              objectFit="cover"
+            />
           )}
         </Box>
 
@@ -167,7 +223,11 @@ function RouteComponent() {
             left="0"
             right="0"
             bottom="0"
-            backgroundImage={character?.avatar_url ? `url('${character.avatar_url}')` : "url('/assets/images/agent.png')"}
+            backgroundImage={
+              character?.avatar_url
+                ? `url('${character.avatar_url}')`
+                : "url('/assets/images/agent.png')"
+            }
             backgroundSize="cover"
             backgroundPosition="center"
             filter="blur(20px)"
@@ -180,13 +240,22 @@ function RouteComponent() {
             <Box flex="1" display="flex" flexDirection="column" minH="0">
               {/* 聊天内容 - 可滚动区域（包含简介和消息） */}
               {loading ? (
-                <Box flex="1" display="flex" alignItems="center" justifyContent="center">
+                <Box
+                  flex="1"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                >
                   <Spinner color="white" />
                 </Box>
               ) : (
                 <ChatList
                   messages={messages}
-                  character={{ name: character?.name, short_bio: character?.short_bio, persona_text: character?.persona_text }}
+                  character={{
+                    name: character?.name,
+                    short_bio: character?.short_bio,
+                    persona_text: character?.persona_text,
+                  }}
                 />
               )}
 
@@ -212,19 +281,33 @@ function RouteComponent() {
                       // 轮询任务并刷新消息
                       let tries = 0
                       const maxTries = 20
-                      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+                      const delay = (ms: number) =>
+                        new Promise((r) => setTimeout(r, ms))
                       while (tries < maxTries) {
                         const t = await tasksApi.getTask(task.task_id)
                         if (t.status === "COMPLETED") {
-                          const full = (t.result?.character_response as string) || ""
+                          const full =
+                            (t.result?.character_response as string) || ""
                           if (full) {
                             const baseId = Date.now() + 1
-                            setMessages((prev) => [...prev, { id: baseId, sender: "character", content: "", audioUrl: t.result?.audio_url as string | undefined }])
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                id: baseId,
+                                sender: "character",
+                                content: "",
+                                audioUrl: t.result?.audio_url as
+                                  | string
+                                  | undefined,
+                              },
+                            ])
                             let acc = ""
                             for (const ch of full) {
                               acc += ch
                               setMessages((prev) =>
-                                prev.map((m) => (m.id === baseId ? { ...m, content: acc } : m))
+                                prev.map((m) =>
+                                  m.id === baseId ? { ...m, content: acc } : m
+                                )
                               )
                               await delay(20)
                             }

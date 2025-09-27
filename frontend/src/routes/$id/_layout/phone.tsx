@@ -1,4 +1,9 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useParams,
+} from "@tanstack/react-router"
 import { Box, Flex, VStack, HStack, Text, Button } from "@chakra-ui/react"
 import { FaPhoneSlash, FaMicrophone, FaMicrophoneSlash } from "react-icons/fa"
 import { useState, useEffect, useRef } from "react"
@@ -7,6 +12,14 @@ import { tasksApi } from "@/api/tasks"
 
 export const Route = createFileRoute("/$id/_layout/phone")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    const isAuthenticated = localStorage.getItem("access_token")
+    if (!isAuthenticated) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
 })
 
 function RouteComponent() {
@@ -35,11 +48,14 @@ function RouteComponent() {
     const start = async () => {
       try {
         // 请求麦克风
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        })
         if (!mounted) return
         mediaStreamRef.current = stream
         // 可视化
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const audioCtx = new (window.AudioContext ||
+          (window as any).webkitAudioContext)()
         const source = audioCtx.createMediaStreamSource(stream)
         const analyser = audioCtx.createAnalyser()
         analyser.fftSize = 256
@@ -66,15 +82,21 @@ function RouteComponent() {
           "audio/webm",
           "audio/ogg;codecs=opus",
         ]
-        const mimeType = mimeTypes.find((t) => MediaRecorder.isTypeSupported(t)) || ""
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+        const mimeType =
+          mimeTypes.find((t) => MediaRecorder.isTypeSupported(t)) || ""
+        const recorder = new MediaRecorder(
+          stream,
+          mimeType ? { mimeType } : undefined
+        )
         recorderRef.current = recorder
         recorder.ondataavailable = async (ev) => {
           const blob = ev.data
           if (!blob || blob.size < 8000) return // 过小片段忽略
           if (isMutedRef.current) return
           try {
-            const file = new File([blob], `chunk_${Date.now()}.webm`, { type: blob.type || "audio/webm" })
+            const file = new File([blob], `chunk_${Date.now()}.webm`, {
+              type: blob.type || "audio/webm",
+            })
             const up = await voiceApi.uploadAudio(file)
             // 限流：队列过长时丢弃最新片段，避免排队过久
             if (pendingChunksRef.current.length >= 3 && processingRef.current) {
@@ -253,23 +275,23 @@ function RouteComponent() {
 
           {/* 控制按钮 */}
           <HStack gap="6" mt="8">
-        {/* 自动播放开关 */}
-        <Button
-          aria-label="自动播放语音"
-          size="lg"
-          borderRadius="full"
-          bg={autoPlay ? "green.500" : "whiteAlpha.200"}
-          color="white"
-          _hover={{
-            bg: autoPlay ? "green.600" : "whiteAlpha.300",
-            transform: "scale(1.05)",
-          }}
-          transition="all 0.2s"
-          onClick={() => setAutoPlay((v) => !v)}
-          p="4"
-        >
-          {autoPlay ? "自动播放：开" : "自动播放：关"}
-        </Button>
+            {/* 自动播放开关 */}
+            <Button
+              aria-label="自动播放语音"
+              size="lg"
+              borderRadius="full"
+              bg={autoPlay ? "green.500" : "whiteAlpha.200"}
+              color="white"
+              _hover={{
+                bg: autoPlay ? "green.600" : "whiteAlpha.300",
+                transform: "scale(1.05)",
+              }}
+              transition="all 0.2s"
+              onClick={() => setAutoPlay((v) => !v)}
+              p="4"
+            >
+              {autoPlay ? "自动播放：开" : "自动播放：关"}
+            </Button>
 
             {/* 静音按钮 */}
             <Button

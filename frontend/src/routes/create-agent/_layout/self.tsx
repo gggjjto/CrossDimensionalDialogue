@@ -1,5 +1,5 @@
 import { Box } from "@chakra-ui/react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Swiper, SwiperSlide } from "swiper/react"
 import { Navigation, Pagination } from "swiper/modules"
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
@@ -16,6 +16,14 @@ import { useSelfAgent } from "@/contexts/SelfAgentContext"
 
 export const Route = createFileRoute("/create-agent/_layout/self")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    const isAuthenticated = localStorage.getItem("access_token")
+    if (!isAuthenticated) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
 })
 
 function RouteComponent() {
