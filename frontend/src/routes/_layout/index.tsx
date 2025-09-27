@@ -7,6 +7,9 @@ import { BsChatDots, BsHeart } from "react-icons/bs"
 import IndexAside from "@/components/Common/Aside"
 import { InputGroup } from "@/components/ui/input-group"
 import MasonryGrid from "@/components/index/MasonryGrid"
+import { useEffect } from "react"
+import { charactersApi } from "@/api/characters"
+import type { CharacterPublic } from "@/api/characters/type"
 
 export const Route = createFileRoute("/_layout/")({
   component: RouteComponent,
@@ -100,21 +103,64 @@ function ItemCard(props: ItemCardProps) {
 }
 
 function RouteComponent() {
-  // 瀑布流数据与加载状态
-  const [items, setItems] = useState(demoItems)
+  // 角色数据与加载状态
+  const [items, setItems] = useState<CharacterPublic[]>([])
+  const [search, setSearch] = useState("")
   const [hasMore, setHasMore] = useState(true)
+  const [skip, setSkip] = useState(0)
+  const limit = 20
 
-  // 加载更多（这里用本地模拟，真实项目可替换为接口请求）
-  const loadMore = () => {
-    setTimeout(() => {
-      const start = items.length
-      const more = generateDemoItems(start, 20)
-      const next = [...items, ...more]
+  const mapToCardItem = (c: CharacterPublic) => ({
+    title: c.name,
+    author: "",
+    comments: 0,
+    likes: 0,
+    src: c.avatar_url || `https://picsum.photos/seed/${c.id}/400/360`,
+  })
+
+  const loadMore = async () => {
+    if (search.trim()) {
+      const res = await charactersApi.search(search.trim(), { offset: skip, limit })
+      // 转换搜索结果到角色列表（接口返回 results 数组，包含 character 字段）
+      const list = (res.results || []).map((r: any) => r.character).filter(Boolean) as CharacterPublic[]
+      const next = [...items, ...list]
       setItems(next)
-      // 示例：最多加载到 200 条后停止
-      if (next.length >= 200) setHasMore(false)
-    }, 500)
+      setSkip(skip + list.length)
+      if (next.length >= res.total || list.length < limit) setHasMore(false)
+    } else {
+      const res = await charactersApi.getPublicCharacters({ skip, limit })
+      const list = res.characters
+      const next = [...items, ...list]
+      setItems(next)
+      setSkip(skip + list.length)
+      if (next.length >= res.total || list.length < limit) setHasMore(false)
+    }
   }
+
+  // 首次页搜索/刷新，避免旧 skip/items 影响结果
+  const runFirstPage = async () => {
+    const keyword = search.trim()
+    const pageOffset = 0
+    setHasMore(true)
+    if (keyword) {
+      const res = await charactersApi.search(keyword, { offset: pageOffset, limit })
+      const list = (res.results || []).map((r: any) => r.character).filter(Boolean) as CharacterPublic[]
+      setItems(list)
+      setSkip(list.length)
+      if (list.length >= res.total || list.length < limit) setHasMore(false)
+    } else {
+      const res = await charactersApi.getPublicCharacters({ skip: pageOffset, limit })
+      setItems(res.characters)
+      setSkip(res.characters.length)
+      if (res.characters.length >= res.total || res.characters.length < limit) setHasMore(false)
+    }
+  }
+
+  useEffect(() => {
+    // 首次加载
+    loadMore()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <Box w={"full"} h={"full"} display={"flex"}>
@@ -139,15 +185,25 @@ function RouteComponent() {
           p={4}
           bg={"bg.default"}
         >
-          <InputGroup w={"50%"} startElement={<CiSearch />}>
-            <Input placeholder="搜索AI角色..." variant="subtle" />
+          <InputGroup w={"50%"} startElement={<CiSearch onClick={runFirstPage} style={{ cursor: "pointer" }} />}>
+            <Input
+              placeholder="搜索AI角色..."
+              variant="subtle"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") {
+                  await runFirstPage()
+                }
+              }}
+            />
           </InputGroup>
         </Box>
 
         <Box w={"100%"} h={"100%"} py={4}>
           <Box w={"100%"} lineHeight={"1.5"}>
             <Text fontWeight={"bold"} fontSize={"xl"}>
-              发现智能体
+              发现AI角色
             </Text>
             <Text className="text-muted">与各种AI角色开始对话</Text>
           </Box>
@@ -171,15 +227,18 @@ function RouteComponent() {
               </Text>
             }
             scrollableTarget="scrollable-content"
-            render={(item) => (
-              <ItemCard
-                title={item.title}
-                author={item.author}
-                comments={item.comments}
-                likes={item.likes}
-                src={item.src}
-              />
-            )}
+            render={(item) => {
+              const card = mapToCardItem(item as unknown as CharacterPublic)
+              return (
+                <ItemCard
+                  title={card.title}
+                  author={card.author}
+                  comments={card.comments}
+                  likes={card.likes}
+                  src={card.src}
+                />
+              )
+            }}
           />
         </Box>
       </Box>
@@ -187,17 +246,4 @@ function RouteComponent() {
   )
 }
 
-// 生成演示数据
-const generateDemoItems = (start: number, count: number) =>
-  Array.from({ length: count }).map((_, idx) => {
-    const i = start + idx
-    return {
-      title: "[全地向]在创意自由的任何时间、任何地点，侠义小狗，马上出现",
-      author: "孟奇安",
-      comments: Math.floor(Math.random() * 100),
-      likes: Math.floor(Math.random() * 100),
-      src: `https://picsum.photos/seed/${i}/400/${300 + (i % 5) * 40}`,
-    }
-  })
-
-const demoItems = generateDemoItems(0, 20)
+// 已改为从后端加载公开角色列表

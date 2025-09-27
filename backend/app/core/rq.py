@@ -54,6 +54,7 @@ class QueueManager:
         retry_count = kwargs.pop("retry", 3)
         result_ttl = kwargs.pop("result_ttl", 3600)
         failure_ttl = kwargs.pop("failure_ttl", 86400)
+        depends_on = kwargs.pop("depends_on", None)
 
         # 移除其他不支持的参数
         kwargs.pop("job_timeout", None)
@@ -68,6 +69,7 @@ class QueueManager:
                 timeout=timeout,
                 result_ttl=result_ttl,
                 failure_ttl=failure_ttl,
+                depends_on=depends_on,
             )
         except Exception as e:
             logger.error(f"入队任务失败: {str(e)}")

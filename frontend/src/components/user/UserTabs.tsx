@@ -1,8 +1,10 @@
 import { Box, Flex, Text } from "@chakra-ui/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import AgentList from "@/components/user/AgentList"
 import EmptyState from "@/components/user/EmptyState"
+import { conversationsApi } from "@/api/conversations"
+import { charactersApi } from "@/api/characters"
 
 export default function UserTabs() {
   const [activeTab, setActiveTab] = useState<"created" | "chatted">("created")
@@ -18,36 +20,40 @@ export default function UserTabs() {
     },
   ]
 
-  // 模拟数据
-  const createdAgents = [
-    {
-      id: "1",
-      title: "小熙",
-      slogan: "我是小熙，有什么我可以帮助你的吗？",
-      imageSrc: "/assets/images/agent.png"      
-    },
-    {
-      id: "2", 
-      title: "小美",
-      slogan: "我是小美，有什么我可以帮助你的吗？",
-      imageSrc: "/assets/images/agent1.png"
-    },
-    {
-      id: "3",
-      title: "标题", 
-      slogan: "宣传语",
-      imageSrc: "/assets/images/agent.png"
-    }
-  ]
+  const [createdAgents, setCreatedAgents] = useState<any[]>([])
+  const [chattedAgents, setChattedAgents] = useState<any[]>([])
 
-  const chattedAgents = [
-    {
-      id: "4",
-      title: "小美",
-      slogan: "我是小美，有什么我可以帮助你的吗？",
-      imageSrc: "/assets/images/agent.png"
-    }
-  ]
+  useEffect(() => {
+    ;(async () => {
+      try {
+        // 我创建的智能体（取我创建的角色）
+        const myChars = await charactersApi.getPublicCharacters({ skip: 0, limit: 100, is_active: true })
+        const created = (myChars.characters || []).map((c) => ({
+          id: c.id,
+          title: c.name,
+          slogan: c.short_bio || "",
+          imageSrc: c.avatar_url || "/assets/images/agent.png",
+        }))
+        setCreatedAgents(created)
+      } catch {
+        setCreatedAgents([])
+      }
+
+      try {
+        // 聊过的智能体（最近会话里的角色）
+        const convs = await conversationsApi.getConversations({ skip: 0, limit: 20 })
+        const chatted = (convs.conversations || []).map((cv) => ({
+          id: cv.character?.id || cv.id,
+          title: cv.character?.name || "角色",
+          slogan: cv.character?.short_bio || cv.description || "",
+          imageSrc: cv.character?.avatar_url || "/assets/images/agent.png",
+        }))
+        setChattedAgents(chatted)
+      } catch {
+        setChattedAgents([])
+      }
+    })()
+  }, [])
 
   return (
     <Box bg="bg.muted" h="100vh" position="relative" display="flex" flexDirection="column">

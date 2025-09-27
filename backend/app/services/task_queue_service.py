@@ -66,6 +66,35 @@ class TaskQueueService:
             # 入队任务
             if settings.TASK_QUEUE_ENABLED:
                 queue_name = self._get_queue_name(request.task_type, request.priority)
+                depends_on_job = None
+
+                # 若提供会话ID，则将同一会话的任务串行化（依赖上一个未完成任务）
+                if request.conversation_id:
+                    try:
+                        # 查找同一会话中最新的、尚未结束的任务（不包含当前任务）
+                        prev_stmt = (
+                            select(AITask)
+                            .where(
+                                AITask.conversation_id == request.conversation_id,
+                                AITask.id != task_id,
+                            )
+                            .order_by(AITask.created_at.desc())
+                        )
+                        prev_tasks = db.exec(prev_stmt).all()
+                        for prev in prev_tasks:
+                            # 仅当存在RQ作业且状态不是【已完成/失败/已取消】时才作为依赖
+                            if prev.rq_job_id and prev.status not in [
+                                TaskStatus.COMPLETED,
+                                TaskStatus.FAILED,
+                                TaskStatus.CANCELLED,
+                            ]:
+                                depends_on_job = self.queue_manager.get_job(
+                                    prev.rq_job_id
+                                )
+                                break
+                    except Exception:
+                        depends_on_job = None
+
                 rq_job = self.queue_manager.enqueue_task(
                     queue_name=queue_name,
                     func=self._get_task_function(request.task_type),
@@ -74,6 +103,7 @@ class TaskQueueService:
                     retry=settings.TASK_DEFAULT_RETRY,
                     result_ttl=settings.TASK_RESULT_TTL,
                     failure_ttl=settings.TASK_FAILURE_TTL,
+                    depends_on=depends_on_job,
                 )
 
                 # 更新RQ任务ID

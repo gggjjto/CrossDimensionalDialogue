@@ -22,6 +22,8 @@ interface SelfAgentState {
 
   // 图片数据
   generatedImages: string[]
+  selectedImage?: string
+  createdCharacterId?: string
 
   // UI 状态
   isGenerating: boolean
@@ -47,6 +49,8 @@ const initialState: SelfAgentState = {
   },
   isExtraFormValid: false,
   generatedImages: [],
+  selectedImage: undefined,
+  createdCharacterId: undefined,
   isGenerating: false,
   isCreating: false,
 }
@@ -59,8 +63,10 @@ type SelfAgentAction =
   | { type: "SET_EXTRA_DATA"; payload: ExtraInfoValues }
   | { type: "SET_EXTRA_FORM_VALID"; payload: boolean }
   | { type: "SET_GENERATED_IMAGES"; payload: string[] }
+  | { type: "SET_SELECTED_IMAGE"; payload?: string }
   | { type: "SET_GENERATING"; payload: boolean }
   | { type: "SET_CREATING"; payload: boolean }
+  | { type: "SET_CREATED_CHARACTER_ID"; payload?: string }
   | { type: "RESET_STATE" }
 
 // Reducer
@@ -80,7 +86,11 @@ function selfAgentReducer(
     case "SET_EXTRA_FORM_VALID":
       return { ...state, isExtraFormValid: action.payload }
     case "SET_GENERATED_IMAGES":
-      return { ...state, generatedImages: action.payload }
+      return { ...state, generatedImages: action.payload, selectedImage: action.payload?.[0] }
+    case "SET_SELECTED_IMAGE":
+      return { ...state, selectedImage: action.payload }
+    case "SET_CREATED_CHARACTER_ID":
+      return { ...state, createdCharacterId: action.payload }
     case "SET_GENERATING":
       return { ...state, isGenerating: action.payload }
     case "SET_CREATING":

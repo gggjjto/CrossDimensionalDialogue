@@ -6,7 +6,7 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
 import { useEffect, useState } from "react"
 
@@ -17,6 +17,9 @@ import { Radio, RadioGroup } from "@/components/ui/radio"
 import { ipSourceRules, roleNameRules, styleRules } from "@/utils/rules"
 import ExtraInfoForm from "../../../components/create-agent/ExtraInfoForm"
 import { useSelfAgent } from "@/contexts/SelfAgentContext"
+import { conversationsApi } from "@/api/conversations"
+import { charactersApi } from "@/api/characters"
+import { toaster } from "@/components/ui/toaster"
 
 export const Route = createFileRoute("/create-agent/_layout/ip")({
   component: RouteComponent,
@@ -30,6 +33,7 @@ export interface CreateAgentForm {
 
 function RouteComponent() {
   const { state, dispatch } = useSelfAgent()
+  const navigate = useNavigate()
 
   // 设置模式为 ip
   useEffect(() => {
@@ -87,21 +91,98 @@ function RouteComponent() {
 
   // 提交处理（此处为占位，后续可接入后端/下一步）
   // 角色生成：仅父表单数据
-  const onGenerate = (data: CreateAgentForm) => {
+  const onGenerate = async (data: CreateAgentForm) => {
     if (!canSubmitGenerate) return
-    // eslint-disable-next-line no-console
-    console.log({ ...data })
-    dispatch({ type: "SET_IP_FORM", payload: data })
-    setLastParentSubmitted({ ...data })
+    try {
+      dispatch({ type: "SET_GENERATING", payload: true })
+      // 1) 生成角色设定
+      const gen = await conversationsApi.generateCharacter({
+        name: data.roleName,
+        character_type: data.style === "anime" ? "动漫角色" : "真人角色",
+        background: data.ipSource,
+      })
+
+      // 将生成设定写入到额外信息表单：
+      dispatch({
+        type: "SET_EXTRA_DATA",
+        payload: {
+          ...state.extraData,
+          relationWithUser: gen.persona_text,
+          publicInfo: gen.short_bio,
+          openingLine: gen.example_lines?.[0] || "",
+        },
+      })
+
+      // 2) 创建角色
+      const created = await charactersApi.createCharacter({
+        name: gen.name,
+        short_bio: gen.short_bio,
+        persona_text: gen.persona_text,
+        example_lines: gen.example_lines,
+        source: data.ipSource,
+        is_active: true,
+        is_public: true,
+      })
+      dispatch({ type: "SET_CREATED_CHARACTER_ID", payload: created.id })
+
+      // 3) 生成角色图片（832*1088）
+      const img = await charactersApi.generateCharacterImage(
+        created.id,
+        data.style
+      )
+      if (img.avatar_url) {
+        dispatch({ type: "SET_GENERATED_IMAGES", payload: [img.avatar_url] })
+      }
+
+      dispatch({ type: "SET_IP_FORM", payload: data })
+      setLastParentSubmitted({ ...data })
+      toaster.success({ title: "角色生成完成" })
+    } catch (e: any) {
+      toaster.error({ title: "生成失败", description: e?.message })
+    } finally {
+      dispatch({ type: "SET_GENERATING", payload: false })
+    }
   }
 
   // 创建智能体：父+子数据
-  const onCreateAgent = (data: CreateAgentForm) => {
+  const onCreateAgent = async (data: CreateAgentForm) => {
     if (!canSubmitCreate) return
-    const payload = { ...data, ...state.extraData }
-    // eslint-disable-next-line no-console
-    console.log(payload)
-    setLastAllSubmitted(payload)
+    try {
+      dispatch({ type: "SET_CREATING", payload: true })
+      const payload = { ...data, ...state.extraData }
+      setLastAllSubmitted(payload)
+
+      // 1) 基于已创建的角色创建一个会话
+      if (!state.createdCharacterId) {
+        toaster.error({ title: "缺少角色ID", description: "请先点击‘角色生成’创建角色" })
+        return
+      }
+      const conv = await conversationsApi.createConversation({
+        title: `${state.ipFormData.roleName} 的对话`,
+        character_id: state.createdCharacterId,
+        description: state.extraData.publicInfo || undefined,
+        settings: {
+          enable_tts: false,
+          language: "zh-CN",
+        },
+      })
+
+      // 如果有开场白，作为角色消息写入会话
+      if (state.extraData.openingLine) {
+        await conversationsApi.createMessage(conv.id, {
+          sender_type: "character",
+          content: state.extraData.openingLine,
+        })
+      }
+
+      toaster.success({ title: "创建完成" })
+      // 2) 跳转到聊天界面（以会话ID为路由参数）
+      navigate({ to: "/$id", params: { id: conv.id } })
+    } catch (e: any) {
+      toaster.error({ title: "创建失败", description: e?.message })
+    } finally {
+      dispatch({ type: "SET_CREATING", payload: false })
+    }
   }
 
   return (
@@ -123,10 +204,25 @@ function RouteComponent() {
           padding={4}
           h={"85%"}
         >
-          <Text fontSize={"2xl"} fontWeight={550}>
-            角色形象会在这里展示哟~
-          </Text>
-          <Text color={"fg.muted"}>赶快去选择你想创建的角色吧~</Text>
+          {state.generatedImages[0] ? (
+            <img
+              src={state.generatedImages[0]}
+              alt="角色形象"
+              style={{
+                width: 416,
+                height: 544,
+                objectFit: "cover",
+                borderRadius: 8,
+              }}
+            />
+          ) : (
+            <>
+              <Text fontSize={"2xl"} fontWeight={550}>
+                角色形象会在这里展示哟~
+              </Text>
+              <Text color={"fg.muted"}>赶快去选择你想创建的角色吧~</Text>
+            </>
+          )}
         </Flex>
 
         <Button
@@ -135,7 +231,22 @@ function RouteComponent() {
           rounded={"full"}
           bg={"bg.default"}
           _hover={{ bg: "bg.muted" }}
-          onClick={() => {}}
+          onClick={async () => {
+            if (!state.createdCharacterId) return
+            try {
+              const style = state.ipFormData.style
+              const img = await charactersApi.generateCharacterImage(
+                state.createdCharacterId,
+                style
+              )
+              if (img.avatar_url) {
+                dispatch({ type: "SET_GENERATED_IMAGES", payload: [img.avatar_url] })
+                toaster.success({ title: "已重新生成图片" })
+              }
+            } catch (e: any) {
+              toaster.error({ title: "生成失败", description: e?.message })
+            }
+          }}
         >
           重新生成图片
         </Button>

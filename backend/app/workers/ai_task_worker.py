@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional
 from app.core.config import settings
 from app.core.db import engine
 from app.core.logger import get_logger
+from app.crud.conversation import message as message_crud
+from app.models.conversation import Message as ConversationMessage
 from app.models.task import AITask, TaskStatus, TaskType
 from app.schemas.task import (
     STTTranscriptionTaskInput,
@@ -133,6 +135,29 @@ class AITaskWorker:
                 if not llm_result["success"]:
                     raise ValueError(f"LLM处理失败: {llm_result['error']}")
 
+                # 将原始用户语音的audio_url写入用户消息记录
+                try:
+                    user_message_id = llm_result["user_message"].id
+                    db_user_message: Optional[ConversationMessage] = message_crud.get(
+                        db, id=user_message_id
+                    )
+                    if db_user_message:
+                        db_user_message.audio_url = input_data.audio_url
+                        duration_sec = getattr(stt_response, "duration_sec", None)
+                        if duration_sec is not None:
+                            try:
+                                db_user_message.audio_duration = int(
+                                    round(duration_sec)
+                                )
+                            except Exception:
+                                pass
+                        db_user_message.updated_at = datetime.utcnow()
+                        db.add(db_user_message)
+                        db.commit()
+                except Exception:
+                    # 不因写入失败而中断主流程
+                    pass
+
                 # 更新LLM步骤完成
                 task.progress = 66
                 for step in task.steps:
@@ -208,6 +233,21 @@ class AITaskWorker:
                         break
                 db.add(task)
                 db.commit()
+
+                # 将生成的TTS音频URL写入角色消息记录
+                try:
+                    character_message_id = llm_result["character_message"].id
+                    db_character_message: Optional[ConversationMessage] = (
+                        message_crud.get(db, id=character_message_id)
+                    )
+                    if db_character_message and audio_url:
+                        db_character_message.audio_url = audio_url
+                        db_character_message.updated_at = datetime.utcnow()
+                        db.add(db_character_message)
+                        db.commit()
+                except Exception:
+                    # 不因写入失败而中断主流程
+                    pass
 
                 # 保存最终结果
                 result = AITaskWorker._json_safe(

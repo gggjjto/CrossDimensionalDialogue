@@ -6,24 +6,24 @@ import { BsChat } from "react-icons/bs"
 import Divide from "../ui/divide"
 import { Button } from "../ui/button"
 import { useNavigate } from "@tanstack/react-router"
-
-const chatedAgents = [
-  {
-    name: "小助手",
-    description: "有什么我可以帮助你的吗？",
-  },
-  {
-    name: "苏格拉底",
-    description: "我是苏格拉底，有什么我可以帮助你的吗？",
-  },
-  {
-    name: "李大明",
-    description: "我是李大明，有什么我可以帮助你的吗？",
-  },
-]
+import { useEffect, useState } from "react"
+import { conversationsApi } from "@/api/conversations"
+import type { ConversationWithDetails } from "@/api/conversations/type"
 
 export default function IndexAside() {
   const navigate = useNavigate()
+  const [recent, setRecent] = useState<ConversationWithDetails[]>([])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await conversationsApi.getConversations({ skip: 0, limit: 10 })
+        setRecent(res.conversations)
+      } catch {
+        setRecent([])
+      }
+    })()
+  }, [])
 
   return (
     <Box
@@ -92,7 +92,7 @@ export default function IndexAside() {
           </Text>
 
           <Stack spaceY={2}>
-            {chatedAgents.map((agent) => (
+            {recent.map((conv) => (
               <Box
                 display={"flex"}
                 alignItems={"center"}
@@ -102,16 +102,17 @@ export default function IndexAside() {
                 padding={2}
                 borderRadius={"md"}
                 transition={"all 0.2s ease-in-out"}
+                onClick={() => navigate({ to: "/$id", params: { id: conv.id } })}
               >
                 <HStack gap="2">
                   <Avatar.Root>
-                    <Avatar.Fallback name={agent.name} />
-                    <Avatar.Image />
+                    <Avatar.Fallback name={conv.character?.name || "角色"} />
+                    <Avatar.Image src={conv.character?.avatar_url || "/assets/images/agent.png"} />
                   </Avatar.Root>
                   <Stack gap="0">
-                    <Text fontWeight="medium">{agent.name}</Text>
+                    <Text fontWeight="medium">{conv.character?.name || conv.title}</Text>
                     <Text color="fg.muted" textStyle="xs">
-                      {agent.description}
+                      {conv.description || "点击继续对话"}
                     </Text>
                   </Stack>
                 </HStack>

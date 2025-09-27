@@ -4,7 +4,8 @@ from typing import Any
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.crud import user as crud_user, character as crud_character
+from app.crud import character as crud_character
+from app.crud import user as crud_user
 from app.models import (
     Item,
     Message,
@@ -18,7 +19,7 @@ from app.models import (
     UserUpdateMe,
 )
 from app.utils import generate_new_account_email, send_email
-from app.utils.response import success_response, error_response
+from app.utils.response import error_response, success_response
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import col, delete, select
@@ -122,11 +123,11 @@ def read_user_me(session: SessionDep, current_user: CurrentUser):
     获取当前用户信息。
     """
     # 动态更新统计字段
-    character_count = crud_character.get_user_character_count(
+    character_count = crud_character.character.get_user_character_count(
         session, user_id=current_user.id
     )
     conversation_count = crud_user.get_user_conversation_count(
-        session, user_id=current_user.id
+        session=session, user_id=current_user.id
     )
 
     # 更新用户对象的统计字段

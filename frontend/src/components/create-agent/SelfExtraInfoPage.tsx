@@ -3,9 +3,13 @@ import { Container, Flex, Text } from "@chakra-ui/react"
 import { Button } from "@/components/ui/button"
 import ExtraInfoForm from "./ExtraInfoForm"
 import { useSelfAgent } from "@/contexts/SelfAgentContext"
+import { charactersApi } from "@/api/characters"
+import { conversationsApi } from "@/api/conversations"
+import { useNavigate } from "@tanstack/react-router"
 
 export default function SelfExtraInfoPage() {
   const { state, dispatch } = useSelfAgent()
+  const navigate = useNavigate()
 
   // 创建智能体业务逻辑
   const createAgent = async () => {
@@ -13,18 +17,44 @@ export default function SelfExtraInfoPage() {
 
     dispatch({ type: "SET_CREATING", payload: true })
     try {
-      // eslint-disable-next-line no-console
-      console.log("创建智能体", {
-        ...state.selfFormData,
-        ...state.extraData,
-        generatedImages: state.generatedImages,
+      const name = state.extraData.nickname?.trim() || "自定义角色"
+      const short_bio = state.extraData.biography?.trim() || state.extraData.publicInfo || ""
+      const persona_text = state.extraData.setting?.trim() || ""
+      const avatar_url = state.selectedImage || state.generatedImages[0]
+
+      const created = await charactersApi.createCharacter({
+        name,
+        short_bio,
+        persona_text,
+        example_lines: state.extraData.openingLine ? [state.extraData.openingLine] : [],
+        source: "user-self",
+        is_active: true,
+        is_public: true,
+        ...(avatar_url ? { avatar_url } : {}),
       })
 
-      // 模拟 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // 若已生成图片，调用角色图片生成接口或直接更新（此处简化：后端支持在创建时自动生成/或稍后生成）
+      // 后端若未自动生成头像，则在后续页面引导补充头像。这里保留所选URL在上下文中以便后续使用。
 
-      // 这里可以调用创建智能体的 API
-      // 成功后可以跳转或显示成功消息
+      dispatch({ type: "SET_CREATED_CHARACTER_ID", payload: String(created.id) })
+
+      // 创建会话并写入开场白
+      const conv = await conversationsApi.createConversation({
+        title: `${name} 的对话`,
+        character_id: String(created.id),
+        description: state.extraData.publicInfo || undefined,
+        settings: {
+          enable_tts: false,
+          language: "zh-CN",
+        },
+      })
+      if (state.extraData.openingLine) {
+        await conversationsApi.createMessage(String(conv.id), {
+          sender_type: "character",
+          content: state.extraData.openingLine,
+        })
+      }
+      navigate({ to: "/$id", params: { id: String(conv.id) } })
     } finally {
       dispatch({ type: "SET_CREATING", payload: false })
     }

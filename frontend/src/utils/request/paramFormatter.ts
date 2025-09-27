@@ -35,6 +35,10 @@ export function normalizeRequestBody(
   headers: Record<string, string>
 ): BodyInit | undefined {
   if (body === undefined || body === null) return undefined
+  // 若为 FormData，直接返回，且不要主动设置 Content-Type（让浏览器带上 multipart 边界）
+  if (typeof FormData !== "undefined" && body instanceof FormData) {
+    return body as unknown as BodyInit
+  }
   const contentType = Object.keys(headers).find(
     (k) => k.toLowerCase() === "content-type"
   )
