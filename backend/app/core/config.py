@@ -89,6 +89,10 @@ class Settings(BaseSettings):
 
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
 
+    # 邮箱验证验证码配置
+    EMAIL_VERIFICATION_CODE_TTL_SECONDS: int = 600  # 验证码有效期：10分钟
+    EMAIL_VERIFICATION_CODE_LENGTH: int = 6  # 验证码长度：6位数字
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def emails_enabled(self) -> bool:

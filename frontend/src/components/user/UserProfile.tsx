@@ -12,10 +12,12 @@ import {
   Textarea,
   createListCollection,
 } from "@chakra-ui/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FiEdit, FiUpload } from "react-icons/fi"
 
 import UserStats from "@/components/user/UserStats"
+import { imageApi } from "@/api/image"
+import { toaster } from "@/components/ui/toaster"
 import { userApi } from "@/api/user"
 
 // 性别选项集合
@@ -84,19 +86,56 @@ export default function UserProfile() {
     setIsEditing(false)
   }
 
+  // 头像上传（隐藏 input ref）
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      toaster.error({ title: "图片过大", description: "请上传不超过 2MB 的图片" })
+      e.target.value = ""
+      return
+    }
+    const previous = userInfo.avatar_url
+    const tempUrl = URL.createObjectURL(file)
+    setUserInfo((u) => ({ ...u, avatar_url: tempUrl }))
+    try {
+      const res = await imageApi.upload(file)
+      await userApi.updateMe({ avatar_url: res.url })
+      setUserInfo((u) => ({ ...u, avatar_url: res.url }))
+      toaster.success({ title: "头像已更新" })
+    } catch (e: any) {
+      setUserInfo((u) => ({ ...u, avatar_url: previous }))
+      toaster.error({ title: "上传失败", description: e?.message || "请稍后重试" })
+    } finally {
+      try { URL.revokeObjectURL(tempUrl) } catch {}
+      e.target.value = ""
+    }
+  }
+
   return (
+    
     <Stack gap={8} w="100%" maxW="525px">
       {/* 用户头像 */}
       <Box position="relative" alignSelf="center">
-        <Avatar.Root size="full">
+        <Avatar.Root w="120px" h="120px" borderRadius="full">
           <Avatar.Image src={userInfo.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face"} />
           <Avatar.Fallback name={userInfo.username || "用户"} />
         </Avatar.Root>
+        <input
+          ref={fileInputRef}
+          id="avatar-file-input"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={onFileChange}
+        />
         <Button
           position="absolute"
           bottom={0}
           right={0}
-          size="md"
+          size="sm"
           borderRadius="full"
           bg="accent.default"
           color="accent.foreground"
@@ -104,6 +143,7 @@ export default function UserProfile() {
           p={2}
           minW="auto"
           h="auto"
+          onClick={() => fileInputRef.current?.click()}
         >
           <FiUpload size={16} />
         </Button>

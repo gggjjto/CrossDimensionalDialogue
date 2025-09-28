@@ -74,3 +74,8 @@ export interface SendMessageRequest {
 }
 
 
+export interface ConversationLookupResponse {
+  exists: boolean
+  conversation_id?: string
+  conversation?: any
+}

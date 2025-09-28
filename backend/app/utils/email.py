@@ -103,6 +103,22 @@ def generate_new_account_email(
     return EmailData(html_content=html_content, subject=subject)
 
 
+def generate_verify_email_code_email(email_to: str, code: str) -> EmailData:
+    """生成邮箱验证验证码邮件"""
+    project_name = settings.PROJECT_NAME
+    subject = f"{project_name} - Email verification code"
+    html_content = render_email_template(
+        template_name="verify_email.html",
+        context={
+            "project_name": settings.PROJECT_NAME,
+            "email": email_to,
+            "code": code,
+            "valid_minutes": settings.EMAIL_VERIFICATION_CODE_TTL_SECONDS // 60,
+        },
+    )
+    return EmailData(html_content=html_content, subject=subject)
+
+
 def generate_password_reset_token(email: str) -> str:
     """生成密码重置令牌"""
     delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)

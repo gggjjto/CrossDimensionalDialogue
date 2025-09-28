@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import UserProfile from "@/components/user/UserProfile"
 import UserTabs from "@/components/user/UserTabs"
+import BackHomeButton from "@/components/Common/BackHome"
 
 export const Route = createFileRoute("/user")({
   component: UserPage,
@@ -24,6 +25,7 @@ function UserPage() {
         alignItems="flex-start"
         pt={150}
       >
+        <BackHomeButton size="md"/>
         <UserProfile />
       </Box>
 

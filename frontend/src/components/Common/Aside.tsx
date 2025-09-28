@@ -9,10 +9,12 @@ import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { conversationsApi } from "@/api/conversations"
 import type { ConversationWithDetails } from "@/api/conversations/type"
+import { useUserInfo } from "@/hooks/query/useUserInfo"
 
 export default function IndexAside() {
   const navigate = useNavigate()
   const [recent, setRecent] = useState<ConversationWithDetails[]>([])
+  const user = useUserInfo()
 
   useEffect(() => {
     ;(async () => {
@@ -28,6 +30,11 @@ export default function IndexAside() {
     })()
   }, [])
 
+  const handleClick = () => {
+    navigate({ to: "/user" })
+  }
+  
+
   return (
     <Box
       maxW={"20%"}
@@ -42,16 +49,16 @@ export default function IndexAside() {
       h={"full"}
       w={"full"}
     >
-      <Box w={"100%"} px={6} py={2}>
+      <Box w={"100%"} px={6} py={2} onClick={handleClick}>
         <HStack gap="2">
           <Avatar.Root>
-            <Avatar.Fallback name={"张小明"} />
-            <Avatar.Image />
+            <Avatar.Image src={user?.avatar_url || "/assets/images/agent.png"} />
+            <Avatar.Fallback name={user?.full_name || user?.email} />
           </Avatar.Root>
           <Stack gap="0">
-            <Text fontWeight="medium">{"张小明"}</Text>
+            <Text fontWeight="medium">{user?.full_name || user?.email}</Text>
             <Text color="fg.muted" textStyle="sm">
-              {"zhang@example.com"}
+              {user?.email}
             </Text>
           </Stack>
         </HStack>
@@ -106,6 +113,7 @@ export default function IndexAside() {
                 padding={2}
                 borderRadius={"md"}
                 transition={"all 0.2s ease-in-out"}
+                flex={1}
                 onClick={() =>
                   navigate({ to: "/$id", params: { id: conv.id } })
                 }

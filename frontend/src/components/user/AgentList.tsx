@@ -1,5 +1,6 @@
 import { Box, Flex, Text } from "@chakra-ui/react"
-import { Link as RouterLink } from "@tanstack/react-router"
+import { Link as RouterLink, useNavigate } from "@tanstack/react-router"
+import { useEnsureConversation } from "@/hooks/query/useEnsureConversation"
 
 import AgentCard from "./AgentCard"
 
@@ -9,6 +10,8 @@ interface Agent {
   slogan: string
   tags?: string[]
   imageSrc: string
+  characterId?: string
+  conversationId?: string
 }
 
 interface AgentListProps {
@@ -17,6 +20,8 @@ interface AgentListProps {
 }
 
 export default function AgentList({ agents, showCreateLink = true }: AgentListProps) {
+  const navigate = useNavigate()
+  const { ensureConversation } = useEnsureConversation()
   // 将agents分组，每行两个
   const groupedAgents = []
   for (let i = 0; i < agents.length; i += 2) {
@@ -29,7 +34,22 @@ export default function AgentList({ agents, showCreateLink = true }: AgentListPr
       {groupedAgents.map((row, rowIndex) => (
         <Flex key={rowIndex} gap={6} mb={6}>
           {row.map((agent) => (
-            <Box key={agent.id} flex="1">
+            <Box
+              key={agent.id}
+              flex="1"
+              cursor="pointer"
+              onClick={async () => {
+                try {
+                  if (agent.conversationId) {
+                    navigate({ to: "/$id", params: { id: agent.conversationId } })
+                    return
+                  }
+                  const charId = agent.characterId ?? agent.id
+                  const convId = await ensureConversation({ characterId: charId, title: agent.title })
+                  navigate({ to: "/$id", params: { id: convId } })
+                } catch {}
+              }}
+            >
               <AgentCard
                 title={agent.title}
                 slogan={agent.slogan}

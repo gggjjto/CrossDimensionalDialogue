@@ -2,29 +2,28 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from sqlmodel import Session, select, and_, or_, func, desc, asc
-from sqlalchemy.orm import selectinload
-
 from app.models.conversation import (
-    Conversation,
-    ConversationCreate,
-    ConversationUpdate,
-    ConversationSearchRequest,
-    ConversationStatus,
-    Message,
-    MessageCreate,
-    MessageUpdate,
-    MessageSearchRequest,
-    SenderType,
     ContentType,
-    MessageStatus,
+    Conversation,
     ConversationContext,
     ConversationContextCreate,
+    ConversationCreate,
+    ConversationSearchRequest,
+    ConversationStatus,
     ConversationTag,
     ConversationTagCreate,
+    ConversationUpdate,
+    Message,
+    MessageCreate,
+    MessageSearchRequest,
+    MessageStatus,
+    MessageUpdate,
+    SenderType,
     UserConversationLimit,
     UserConversationLimitCreate,
 )
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, and_, asc, desc, func, or_, select
 
 
 class ConversationCRUD:
@@ -247,6 +246,19 @@ class ConversationCRUD:
             and_(Conversation.user_id == user_id, Conversation.deleted_at.is_(None))
         )
         return db.exec(statement).one()
+
+    def get_by_user_and_character(
+        self, db: Session, *, user_id: uuid.UUID, character_id: uuid.UUID
+    ) -> Optional[Conversation]:
+        """根据用户ID和角色ID获取会话"""
+        statement = select(Conversation).where(
+            and_(
+                Conversation.user_id == user_id,
+                Conversation.character_id == character_id,
+                Conversation.deleted_at.is_(None),
+            )
+        )
+        return db.exec(statement).first()
 
 
 class MessageCRUD:

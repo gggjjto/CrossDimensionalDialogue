@@ -1,9 +1,11 @@
+import random
 from datetime import timedelta
 from typing import Annotated, Any
 
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
+from app.core.redis import redis_client
 from app.core.security import get_password_hash
 from app.crud import user as crud_user
 from app.models import Message, NewPassword, Token, UserPublic
@@ -13,10 +15,11 @@ from app.utils import (
     send_email,
     verify_password_reset_token,
 )
-from app.utils.response import success_response, error_response
+from app.utils.response import error_response, success_response
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, EmailStr
 
 router = APIRouter(tags=["login"])
 
@@ -42,6 +45,7 @@ def login_access_token(
         )
     )
     return token.dict()
+
 
 @router.post("/login/access-token-v2")
 def login_access_token_v2(
@@ -121,6 +125,67 @@ def reset_password(session: SessionDep, body: NewPassword):
     session.add(user)
     session.commit()
     return success_response(data={"message": "密码更新成功"}, msg="密码更新成功")
+
+
+class SendVerificationCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyEmailCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
+def _generate_numeric_code(length: int) -> str:
+    digits = "0123456789"
+    code_chars = [random.choice(digits) for _ in range(length)]
+    return "".join(code_chars)
+
+
+@router.post("/login/send-email-verification-code")
+def send_email_verification_code(
+    body: SendVerificationCodeRequest, _session: SessionDep
+):
+    """
+    发送邮箱验证码，将验证码存入Redis并发送邮件。
+    """
+    code = _generate_numeric_code(settings.EMAIL_VERIFICATION_CODE_LENGTH)
+    key = f"email_verification:{body.email}"
+    ttl = settings.EMAIL_VERIFICATION_CODE_TTL_SECONDS
+
+    # Redis 二进制客户端，需写入 bytes
+    redis_client.client.setex(name=key, time=ttl, value=code.encode("utf-8"))
+
+    from app.utils import generate_verify_email_code_email
+
+    email_data = generate_verify_email_code_email(email_to=body.email, code=code)
+    send_email(
+        email_to=body.email,
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+    )
+
+    return success_response(data={"message": "验证码已发送"}, msg="验证码已发送")
+
+
+@router.post("/login/verify-email-code")
+def verify_email_code(body: VerifyEmailCodeRequest, _session: SessionDep):
+    """
+    校验邮箱验证码，成功后将用户标记为已验证。
+    """
+    key = f"email_verification:{body.email}"
+    value = redis_client.client.get(name=key)
+    if not value:
+        raise HTTPException(status_code=400, detail="验证码无效或已过期")
+
+    stored_code = value.decode("utf-8")
+    if stored_code != body.code:
+        raise HTTPException(status_code=400, detail="验证码错误")
+
+    # 校验通过后删除验证码，返回成功
+    redis_client.client.delete(key)
+
+    return success_response(data={"message": "邮箱验证成功"}, msg="邮箱验证成功")
 
 
 @router.post(

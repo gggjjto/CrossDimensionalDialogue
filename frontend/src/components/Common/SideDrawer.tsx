@@ -8,24 +8,16 @@ import {
 import { Avatar, Box, HStack, Stack, Text } from "@chakra-ui/react"
 import { IoMdAdd } from "react-icons/io"
 import { HiOutlineHome } from "react-icons/hi"
+import { BsChat } from "react-icons/bs"
 import Divide from "../ui/divide"
 import { Button } from "../ui/button"
 import { useNavigate } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
+import { conversationsApi } from "@/api/conversations"
+import type { ConversationWithDetails } from "@/api/conversations/type"
+import { useUserInfo } from "@/hooks/query/useUserInfo"
 
-const chatedAgents = [
-  {
-    name: "小助手",
-    description: "有什么我可以帮助你的吗？",
-  },
-  {
-    name: "苏格拉底",
-    description: "我是苏格拉底，有什么我可以帮助你的吗？",
-  },
-  {
-    name: "李大明",
-    description: "我是李大明，有什么我可以帮助你的吗？",
-  },
-]
+// 侧边抽屉：展示用户信息与最近会话
 
 type SideDrawerProps = {
   isOpen: boolean
@@ -34,6 +26,20 @@ type SideDrawerProps = {
 
 export default function SideDrawer({ isOpen, onClose }: SideDrawerProps) {
   const navigate = useNavigate()
+  const user = useUserInfo()
+  const [recent, setRecent] = useState<ConversationWithDetails[]>([])
+
+  useEffect(() => {
+    if (!isOpen) return
+    ;(async () => {
+      try {
+        const res = await conversationsApi.getConversations({ skip: 0, limit: 10 })
+        setRecent(res.conversations || [])
+      } catch {
+        setRecent([])
+      }
+    })()
+  }, [isOpen])
 
   return (
     <DrawerRoot
@@ -56,17 +62,15 @@ export default function SideDrawer({ isOpen, onClose }: SideDrawerProps) {
             h={"full"}
             w="100%"
           >
-            <Box w={"100%"} px={6} py={2}>
+            <Box w={"100%"} px={6} py={2} onClick={() => { navigate({ to: "/user" }); onClose() }}>
               <HStack gap="2">
                 <Avatar.Root>
-                  <Avatar.Fallback name={"张小明"} />
-                  <Avatar.Image />
+                  <Avatar.Image src={user?.avatar_url || "/assets/images/agent.png"} />
+                  <Avatar.Fallback name={user?.full_name || user?.email} />
                 </Avatar.Root>
                 <Stack gap="0">
-                  <Text fontWeight="medium">{"张小明"}</Text>
-                  <Text color="fg.muted" textStyle="sm">
-                    {"zhang@example.com"}
-                  </Text>
+                  <Text fontWeight="medium">{user?.full_name || user?.email}</Text>
+                  <Text color="fg.muted" textStyle="sm">{user?.email}</Text>
                 </Stack>
               </HStack>
             </Box>
@@ -80,7 +84,7 @@ export default function SideDrawer({ isOpen, onClose }: SideDrawerProps) {
                 variant="outline"
                 bg={"white"}
                 _hover={{ bg: "bg.active" }}
-                onClick={() => navigate({ to: "/create-agent" })}
+                onClick={() => { navigate({ to: "/create-agent" }); onClose() }}
               >
                 <HStack gap="2">
                   <IoMdAdd />
@@ -96,7 +100,7 @@ export default function SideDrawer({ isOpen, onClose }: SideDrawerProps) {
                 variant="ghost"
                 _hover={{ bg: "accent.octonary" }}
                 justifyContent="flex-start"
-                onClick={() => navigate({ to: "/" })}
+                onClick={() => { navigate({ to: "/" }); onClose() }}
               >
                 <HStack gap="2">
                   <HiOutlineHome />
@@ -110,24 +114,24 @@ export default function SideDrawer({ isOpen, onClose }: SideDrawerProps) {
                 最近聊天
               </Text>
               <Stack gap="2">
-                {chatedAgents.map((agent, index) => (
+                {recent.map((cv) => (
                   <Button
-                    key={index}
+                    key={cv.id}
                     w={"100%"}
                     h={16}
                     variant="ghost"
                     justifyContent="flex-start"
                     _hover={{ bg: "bg.active" }}
-                    onClick={() => navigate({ to: `/${index + 1}` })}
+                    onClick={() => { navigate({ to: "/$id", params: { id: cv.id } }); onClose() }}
                   >
                     <HStack gap="3" w="100%">
                       <Avatar.Root size="sm">
-                        <Avatar.Fallback name={agent.name} />
-                        <Avatar.Image />
+                        <Avatar.Image src={cv.character?.avatar_url || "/assets/images/agent.png"} />
+                        <Avatar.Fallback name={cv.character?.name || cv.title} />
                       </Avatar.Root>
                       <Stack gap="0" align="start" flex="1">
                         <Text fontWeight="medium" textStyle="sm">
-                          {agent.name}
+                          {cv.character?.name || cv.title}
                         </Text>
                         <Text
                           color="fg.muted"
@@ -137,9 +141,10 @@ export default function SideDrawer({ isOpen, onClose }: SideDrawerProps) {
                           whiteSpace="nowrap"
                           fontWeight="normal"
                         >
-                          {agent.description}
+                          {cv.description || "点击继续对话"}
                         </Text>
                       </Stack>
+                      <BsChat className="text-muted" />
                     </HStack>
                   </Button>
                 ))}

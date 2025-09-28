@@ -18,6 +18,7 @@ import { InputGroup } from "@/components/ui/input-group"
 import MasonryGrid from "@/components/index/MasonryGrid"
 import { useAgentList } from "@/hooks/query/useAgentList"
 import type { CharacterPublic } from "@/api/characters/type"
+import { useEnsureConversation } from "@/hooks/query/useEnsureConversation"
 import EmptyState from "@/components/user/EmptyState"
 
 export const Route = createFileRoute("/_layout/")({
@@ -27,8 +28,13 @@ export const Route = createFileRoute("/_layout/")({
 function ItemCard(props: CharacterPublic) {
   const [isHoverImage, setIsHoverImage] = useState(false)
   const navigate = useNavigate()
+  const { ensureConversation } = useEnsureConversation()
 
-  const { name, short_bio, avatar_url } = props
+  const { id, name, short_bio, avatar_url } = props
+  const handleClick = async () => {
+    const convId = await ensureConversation({ characterId: id, title: name })
+    navigate({ to: "/$id", params: { id: convId } })
+  }
   return (
     <Box
       position={"relative"}
@@ -39,7 +45,7 @@ function ItemCard(props: CharacterPublic) {
       cursor={"pointer"}
       onMouseEnter={() => setIsHoverImage(true)}
       onMouseLeave={() => setIsHoverImage(false)}
-      onClick={() => navigate({ to: "/$id", params: { id: "123" } })}
+      onClick={handleClick}
     >
       {/* 背景图片 */}
       <Image

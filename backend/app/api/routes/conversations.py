@@ -21,6 +21,7 @@ from app.schemas.conversation import (
     ContentType,
     ConversationCreate,
     ConversationListResponse,
+    ConversationLookupResponse,
     ConversationPublic,
     ConversationSearchRequest,
     ConversationUpdate,
@@ -177,6 +178,52 @@ async def get_conversation(
     return success_response(
         data=ConversationWithDetails(**conv_dict).dict(), msg="获取会话详情成功"
     )
+
+
+@router.get("/lookup/by-character/{character_id}")
+async def lookup_conversation_by_character(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    character_id: uuid.UUID,
+):
+    """根据用户ID和角色ID查找会话"""
+    try:
+        # 查找会话
+        db_conversation = conversation.get_by_user_and_character(
+            db, user_id=current_user.id, character_id=character_id
+        )
+
+        if db_conversation:
+            # 转换为响应格式
+            conv_dict = ConversationPublic.from_orm(db_conversation).dict()
+            conv_dict["character"] = db_conversation.character
+            conv_dict["user"] = db_conversation.user
+
+            return success_response(
+                data=ConversationLookupResponse(
+                    exists=True,
+                    conversation_id=db_conversation.id,
+                    conversation=ConversationWithDetails(**conv_dict),
+                ).dict(),
+                msg="找到会话",
+            )
+        else:
+            return success_response(
+                data=ConversationLookupResponse(
+                    exists=False,
+                    conversation_id=None,
+                    conversation=None,
+                ).dict(),
+                msg="未找到会话",
+            )
+
+    except Exception as e:
+        logger.error("查找会话失败: %s", str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="查找会话失败",
+        )
 
 
 @router.put("/{conversation_id}")

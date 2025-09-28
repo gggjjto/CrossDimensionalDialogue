@@ -7,6 +7,7 @@ import {
 import { Box, Flex, VStack, HStack, Text, Button } from "@chakra-ui/react"
 import { FaPhoneSlash, FaMicrophone, FaMicrophoneSlash } from "react-icons/fa"
 import { useState, useEffect, useRef } from "react"
+import { useConversation } from "@/hooks/query/useConversation"
 
 import { useVoiceStream } from "@/hooks/query/useVoiceStream"
 
@@ -25,6 +26,8 @@ export const Route = createFileRoute("/$id/_layout/phone")({
 function RouteComponent() {
   const [isMuted, setIsMuted] = useState(false)
   const isMutedRef = useRef(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const isSpaceHeldRef = useRef(false)
   const [audioLevels, setAudioLevels] = useState<number[]>([])
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -32,11 +35,13 @@ function RouteComponent() {
   const rafIdRef = useRef<number | null>(null)
 
   const navigate = useNavigate()
-  const { id } = useParams({ from: "/$id/_layout" })
+  const { id } = useParams({ from: "/$id/_layout/phone" })
   // 从语音流钩子中获取控制项与清理方法
   const { isPlaying, submitBlob, teardown } = useVoiceStream(id)
+  const conversationQuery = useConversation(id)
+  const avatarUrl = conversationQuery.data?.character?.avatar_url || "/assets/images/agent.png"
 
-  // 启动麦克风录音（分段上传）
+  // 准备麦克风与可视化（不自动开始录音）
   useEffect(() => {
     let mounted = true
 
@@ -90,8 +95,6 @@ function RouteComponent() {
           if (isMutedRef.current) return
           await submitBlob(blob)
         }
-        // 缩短分片大小，提升响应（~1.2s）
-        recorder.start(1200)
       } catch {
         // 权限被拒或不支持
       }
@@ -112,6 +115,59 @@ function RouteComponent() {
     }
   }, [id])
 
+  // 空格键按住开始录音，松开停止并提交
+  useEffect(() => {
+    const isEditable = (el: Element | null) => {
+      if (!el) return false
+      const tag = (el as HTMLElement).tagName
+      const editable = (el as HTMLElement).isContentEditable
+      return (
+        editable ||
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT"
+      )
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return
+      if (isEditable(document.activeElement)) return
+      if (isSpaceHeldRef.current) return
+      e.preventDefault()
+      // 开始录音
+      try {
+        const rec = recorderRef.current
+        if (rec && rec.state === "inactive") {
+          rec.start()
+          isSpaceHeldRef.current = true
+          setIsRecording(true)
+        }
+      } catch {}
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return
+      if (!isSpaceHeldRef.current) return
+      e.preventDefault()
+      // 停止录音
+      try {
+        const rec = recorderRef.current
+        if (rec && rec.state === "recording") {
+          rec.stop()
+          setIsRecording(false)
+        }
+      } catch {}
+      isSpaceHeldRef.current = false
+    }
+
+    window.addEventListener("keydown", handleKeyDown, { passive: false })
+    window.addEventListener("keyup", handleKeyUp, { passive: false })
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown as any)
+      window.removeEventListener("keyup", handleKeyUp as any)
+    }
+  }, [])
+
   // 同步 isMuted 到 ref，避免 ondataavailable 闭包中取到过期值
   useEffect(() => {
     isMutedRef.current = isMuted
@@ -124,10 +180,12 @@ function RouteComponent() {
     }
   }, [isMuted])
 
-  // 当 AI 正在播放时，强制静音并禁用静音按钮，播放结束后用户可手动解除静音
+  // 当 AI 播放时强制静音；播放结束后自动解除静音
   useEffect(() => {
     if (isPlaying) {
       setIsMuted(true)
+    } else {
+      setIsMuted(false)
     }
   }, [isPlaying])
 
@@ -148,7 +206,7 @@ function RouteComponent() {
         left="0"
         right="0"
         bottom="0"
-        backgroundImage="url('/assets/images/agent.png')"
+        backgroundImage={`url('${avatarUrl}')`}
         backgroundSize="cover"
         backgroundPosition="center"
         // backgroundRepeat="no-repeat"
@@ -171,7 +229,7 @@ function RouteComponent() {
             w="120px"
             h="120px"
             borderRadius="full"
-            backgroundImage="url('/assets/images/agent.png')"
+            backgroundImage={`url('${avatarUrl}')`}
             backgroundSize="cover"
             backgroundPosition="center"
             border="4px solid"
@@ -203,6 +261,10 @@ function RouteComponent() {
             opacity="0.9"
           >
             正在通话中...
+          </Text>
+
+          <Text color="whiteAlpha.800" fontSize="sm">
+            {isRecording ? "录音中（松开空格发送）" : "按住空格开始说话"}
           </Text>
 
           {/* 控制按钮 */}

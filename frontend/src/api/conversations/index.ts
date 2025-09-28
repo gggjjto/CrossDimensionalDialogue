@@ -9,6 +9,7 @@ import type {
   MessagePublic,
   SendMessageRequest,
   ConversationsListResponse,
+  ConversationLookupResponse,
 } from "./type"
 
 export const conversationsApi = {
@@ -39,6 +40,12 @@ export const conversationsApi = {
   /** 会话详情 */
   getConversation: async (id: string) => {
     return request.get<ConversationWithDetails>(`/v1/conversations/${id}`)
+  },
+  /** 通过角色ID查找已存在的会话 */
+  lookupByCharacter: async (characterId: string) => {
+    return request.get<ConversationLookupResponse>(
+      `/v1/conversations/lookup/by-character/${characterId}`
+    )
   },
   /** 消息列表 */
   getMessages: async (

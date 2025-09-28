@@ -1,19 +1,18 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional, Dict, Any
-
-from pydantic import BaseModel, Field, field_validator
-from sqlmodel import SQLModel
+from typing import Any, Dict, List, Optional
 
 from app.models.conversation import (
-    ConversationStatus,
-    SenderType,
     ContentType,
-    MessageStatus,
     ContextType,
+    ConversationStatus,
+    MessageStatus,
+    SenderType,
 )
-from app.schemas.user import UserPublic
 from app.schemas.character import CharacterPublic
+from app.schemas.user import UserPublic
+from pydantic import BaseModel, Field, field_validator
+from sqlmodel import SQLModel
 
 
 # 会话相关模式
@@ -280,6 +279,14 @@ class ConversationListResponse(SQLModel):
     total: int
     skip: int
     limit: int
+
+
+class ConversationLookupResponse(SQLModel):
+    """会话查找响应模式"""
+
+    exists: bool = Field(..., description="是否存在会话")
+    conversation_id: Optional[uuid.UUID] = Field(None, description="会话ID")
+    conversation: Optional[ConversationPublic] = Field(None, description="会话详情")
 
 
 # 消息相关模式

@@ -15,6 +15,11 @@ export const imageApi = {
       { params: { prompt, size, style, quality } as Record<string, unknown> }
     )
   },
+  upload: async (file: File) => {
+    const form = new FormData()
+    form.append("file", file)
+    return request.post<{ url: string; key?: string }>("/v1/image/upload", form)
+  },
 }
 
 

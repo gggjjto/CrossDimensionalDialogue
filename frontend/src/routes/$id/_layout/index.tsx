@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useParams } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate, useParams } from "@tanstack/react-router"
 import { Box, Flex, Text, IconButton, Image, Spinner } from "@chakra-ui/react"
 import { useState } from "react"
 
@@ -7,6 +7,7 @@ import ChatList from "../../../components/chat/ChatList"
 import SideDrawer from "../../../components/Common/SideDrawer"
 import { useConversationChat } from "@/hooks/useConversationChat"
 import { Skeleton } from "@/components/ui/skeleton"
+import BackHomeButton from "@/components/Common/BackHome"
 
 export const Route = createFileRoute("/$id/_layout/")({
   component: RouteComponent,
@@ -79,8 +80,9 @@ function RouteComponent() {
 
   return (
     <Box minH="100vh" bg="bg.default">
+      <BackHomeButton top={4} left={4} size="md" />
       {/* 汉堡菜单 */}
-      <Box position="absolute" top="4" left="4" zIndex="10">
+      <Box position="absolute" top="4" left="14" zIndex="10">
         <IconButton
           aria-label="菜单"
           variant="ghost"

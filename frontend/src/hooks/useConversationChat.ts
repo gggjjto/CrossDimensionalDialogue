@@ -70,7 +70,11 @@ export const useConversationChat = (conversationId: string | undefined) => {
     audioUrl?: string
   }[] => {
     const list = messagesQuery.data?.messages || []
-    return list.map((m, idx) => ({
+    const sorted = [...list].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+    return sorted.map((m, idx) => ({
       id: idx + 1,
       sender:
         m.sender_type === "user" ? ("user" as const) : ("character" as const),
