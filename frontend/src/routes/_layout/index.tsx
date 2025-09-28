@@ -176,49 +176,48 @@ function RouteComponent() {
             </Text>
             <Text className="text-muted">与各种AI角色开始对话</Text>
           </Box>
-        </Box>
-
-        <Box w={"100%"} h={"100%"} pb={10}>
-          {isLoadingList ? (
-            <Box
-              w={"100%"}
-              display={"flex"}
-              alignItems={"center"}
-              justifyContent={"center"}
-            >
-              <Spinner />
-            </Box>
-          ) : characters && characters.length > 0 ? (
-            <MasonryGrid
-              items={characters ?? []}
-              getKey={(_, i) => i}
-              gutter="2px"
-              hasMore={hasMore}
-              onLoadMore={loadMore}
-              loader={
-                <Text textAlign="center" py={4}>
-                  {isFetchingNextPage ? "加载中..." : "加载更多..."}
-                </Text>
-              }
-              endMessage={
-                <Text textAlign="center" py={4}>
-                  没有更多了
-                </Text>
-              }
-              scrollableTarget="scrollable-content"
-              render={(item) => {
-                return <ItemCard {...item} />
-              }}
-            />
-          ) : (
-            <EmptyState
-              title="这里什么也没有~"
-              subtitle="赶快去选择你想创建的角色吧~"
-              actionText="点击去创建→"
-              actionLink="/create-agent"
-              minH={0}
-            />
-          )}
+          <Box w={"100%"} marginTop={4} h={"100%"} pb={10}>
+            {isLoadingList ? (
+              <Box
+                w={"100%"}
+                display={"flex"}
+                alignItems={"center"}
+                justifyContent={"center"}
+              >
+                <Spinner />
+              </Box>
+            ) : characters && characters.length > 0 ? (
+              <MasonryGrid
+                items={characters ?? []}
+                getKey={(_, i) => i}
+                gutter="2px"
+                hasMore={hasMore}
+                onLoadMore={loadMore}
+                loader={
+                  <Text textAlign="center" py={4}>
+                    {isFetchingNextPage ? "加载中..." : "加载更多..."}
+                  </Text>
+                }
+                endMessage={
+                  <Text textAlign="center" py={4}>
+                    没有更多了
+                  </Text>
+                }
+                scrollableTarget="scrollable-content"
+                render={(item) => {
+                  return <ItemCard {...item} />
+                }}
+              />
+            ) : (
+              <EmptyState
+                title="这里什么也没有~"
+                subtitle="赶快去选择你想创建的角色吧~"
+                actionText="点击去创建→"
+                actionLink="/create-agent"
+                minH={0}
+              />
+            )}
+          </Box>
         </Box>
       </Box>
     </Box>
